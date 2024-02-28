@@ -15,6 +15,10 @@ Real Agents是一个结合传统人工智能方法和大语言模型（Large Lan
 
 <!-- more -->
 
+## 项目链接
+
+https://github.com/AkiKurisu/Real-Agents
+
 ![示例项目](../../../assets/images/2024-02-28/Demo0.png)
 
 ## 特点
@@ -143,21 +147,23 @@ VRM 模型请参阅各个作者的许可说明。
 
 Polygon Fantasy Kingdom is a paid asset.
 
-https://assetstore.unity.com/packages/3d/environments/fantasy/polygon-fantasy-kingdom-low-poly-3d-art-by-synty-164532
+>https://assetstore.unity.com/packages/3d/environments/fantasy/polygon-fantasy-kingdom-low-poly-3d-art-by-synty-164532
 
-Example scene is optimized by Scene Optimizer created by [Procedural Worlds](https://assetstore.unity.com/publishers/15277)
+Example scene is optimized by Scene Optimizer created by [Procedural Worlds]
+>https://assetstore.unity.com/publishers/15277)
+
 
 Lowpoly Environment can be downloaded in assetstore for free.
 
-https://assetstore.unity.com/packages/3d/environments/lowpoly-environment-nature-free-medieval-fantasy-series-187052
+>https://assetstore.unity.com/packages/3d/environments/lowpoly-environment-nature-free-medieval-fantasy-series-187052
 
 Heat - Complete Modern UI is paid asset
 
-https://assetstore.unity.com/packages/2d/gui/heat-complete-modern-ui-264857
+>https://assetstore.unity.com/packages/2d/gui/heat-complete-modern-ui-264857
 
 GUI-CasualFantasy is paid asset
 
-https://assetstore.unity.com/packages/2d/gui/gui-casual-fantasy-265651
+>https://assetstore.unity.com/packages/2d/gui/gui-casual-fantasy-265651
 
 Unity Chan animation is owned by Unity Technology Japan and under UC2 license.
 
@@ -169,11 +175,11 @@ Unity Starter Asset is under the Unity Companion License and can be downloaded i
 
 UniVRM is under MIT license.
 
-https://github.com/vrm-c/UniVRM
+>https://github.com/vrm-c/UniVRM
 
 AkiFramework is under MIT license.
 
-https://github.com/AkiKurisu/AkiFramework
+>https://github.com/AkiKurisu/AkiFramework
 
 
 Demo中使用的其他动画、音乐、ui、字体资源均为网络资源，请勿用于商业用途。
