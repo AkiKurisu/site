@@ -1,0 +1,212 @@
+site_name: AkiKurisu's Site
+site_url: https://www.AkiKurisu.com/
+site_description: AkiKurisu's site.
+repo_name: AkiKurisu/site
+repo_url: https://github.com/AkiKurisu/site
+edit_uri: blob/main/docs/ # do not use "edit/main/docs/"
+copyright: >
+  Copyright &copy; 2022-2024 AkiKurisu. All rights reserved.<br>
+  Contents are licensed under the <u><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC-BY-NC-SA 4.0</a></u> license, except when otherwise noted.
+
+
+theme:
+  name: material
+  language: zh
+  favicon: &site-icon assets/images/favicon.ico
+
+  font:
+    text: LXGW WenKai Screen
+    code: JetBrains Mono
+
+  icon:
+    repo: fontawesome/brands/github
+    logo: octicons/stack-24
+    edit: material/pencil
+    tag:
+      default: fontawesome/solid/hashtag
+
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/circle-slice-4
+        name: Auto Mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      toggle:
+        icon: material/circle-slice-8
+        name: Light Mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      toggle:
+        icon: material/circle-outline
+        name: Dark Mode
+
+  features:
+    - announce.dismiss
+
+    - content.tooltips
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+
+    # TODO instant 和 MathJax 一起用目前有 bug，进下一个页面后公式排版会乱
+    # - navigation.instant
+    # - navigation.instant.progress
+    # - navigation.tabs
+    - navigation.top
+    - navigation.path
+    # - navigation.indexes
+    # - navigation.tracking
+    - navigation.footer
+    # - navigation.sections
+
+    - toc.follow
+    # - toc.integrate
+
+    - search.suggest
+    - search.highlight
+    - search.share
+
+
+extra:
+  social:
+    - name: GitHub
+      icon: fontawesome/brands/github
+      link: https://github.com/AkiKurisu
+    - name: Mail
+      icon: fontawesome/solid/envelope
+      link: mailto:2683987717@qq.com
+  tags: { "": default } # https://github.com/squidfunk/mkdocs-material/blob/0b38323a310d9ab9ac7fd60ad0bdae5871e42d73/src/plugins/tags/plugin.py#L146
+
+
+extra_css:
+  - assets/webfonts/JetBrains Mono/font.css
+  - assets/webfonts/LXGW WenKai Screen/font.css
+  - assets/stylesheets/theme.css
+  - assets/stylesheets/feature.css
+  - assets/stylesheets/temp-patch.css
+
+
+extra_javascript:
+  - assets/javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  # - https://cdn.bootcdn.net/ajax/libs/mathjax/3.2.2/es5/tex-chtml.js # 别加 mml！它会导致表格横向溢出！
+  - https://cdn.jsdelivr.net/npm/mathjax@4.0.0-beta.4/tex-chtml.js
+
+
+markdown_extensions:
+  - abbr
+  - tables
+  - attr_list
+  - md_in_html
+  - footnotes
+  - admonition
+  - pymdownx.details
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.snippets
+  - pymdownx.highlight:
+      # auto_title: true
+      linenums: true
+      anchor_linenums: true
+      use_pygments: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true 
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+
+plugins:
+  - search:
+      # TODO 禁用以后，运行时代码会报错，然后颜色模式切换会炸掉
+      # 临时在 config_validator.py 里禁用
+      # enabled: !ENV [CI, false]
+      lang:
+        - zh
+        - en
+      # TODO 分词后 highlight 有问题
+      jieba_dict: docs/assets/jieba-dict.txt
+  - git-revision-date-localized:
+      enabled: !ENV [CI, false]
+      type: timeago
+      timezone: Asia/Shanghai
+      locale: zh
+      enable_creation_date: true
+      exclude:
+        - blog/** # 不要处理 Blog
+        - news/** # 不要处理 News
+  - git-committers:
+      enabled: !ENV [CI, false]
+      repository: AkiKurisu/site
+      branch: main
+      exclude:
+        - blog/** # 不要处理 Blog
+        - news/** # 不要处理 News
+  - glightbox:
+      auto_caption: true
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      cache_safe: true
+      js_files:
+        - assets/javascripts/mathjax.js
+      css_files:
+        - assets/webfonts/JetBrains Mono/font.css
+        - assets/webfonts/LXGW WenKai Screen/font.css
+        - assets/stylesheets/theme.css
+        - assets/stylesheets/feature.css
+        - assets/stylesheets/temp-patch.css
+  - blog:
+      enabled: true
+      blog_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
+      archive: true
+      archive_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
+      archive_date_format: yyyy 年 MM 月
+      archive_url_date_format: yyyy/MM
+      categories: true
+      categories_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
+      authors: true
+      post_date_format: yyyy-MM-dd
+      post_readtime: true
+      post_readtime_words_per_minute: 180
+      post_url_format: "posts/{file}-{date}"
+      post_url_date_format: yyyy-MM-dd
+      post_excerpt: required
+      post_excerpt_max_authors: 0
+      pagination: true
+      pagination_per_page: 10
+      pagination_format: "~2~"
+      pagination_if_single_page: true
+      pagination_keep_content: false
+
+
+
+nav:
+  - index.md
+  - 博客:
+    - blog/index.md
