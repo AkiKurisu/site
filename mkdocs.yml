@@ -210,3 +210,9 @@ nav:
   - index.md
   - 博客:
     - blog/index.md
+  - 项目:
+    - project/index.md
+    - Real Agents:
+      - 简介: project/Real Agents/readme.md
+      - 思考: project/Real Agents/conceive.md
+      - 实验: project/Real Agents/experiment.md

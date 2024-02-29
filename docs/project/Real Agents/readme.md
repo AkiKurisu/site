@@ -1,12 +1,3 @@
----
-date: 2024-02-28T21:37:00
-draft: false
-authors:
-  - AkiKurisu
-categories:
-  - Unity
----
-
 # Real Agents
 
 Real Agents是一个结合传统人工智能方法和大语言模型（Large Language Models，LLM），适用于生成式人工智能代理（Generative AI Agents）的规划框架,包含一个Unity插件和演示项目。
@@ -19,7 +10,7 @@ Real Agents是一个结合传统人工智能方法和大语言模型（Large Lan
 
 https://github.com/AkiKurisu/Real-Agents
 
-![示例项目](../../../assets/images/2024-02-28/Demo0.png)
+![示例项目](../../assets/images/2024-02-28/Demo0.png)
 
 ## 特点
 
@@ -61,13 +52,13 @@ https://github.com/AkiKurisu/Real-Agents
 
 ### 流程图
 
-![流程图](../../../assets/images/2024-02-28/Pipeline.png)
+![流程图](../../assets/images/2024-02-28/Pipeline.png)
 
 ### 步骤1：预处理
 
 首先，开发者定义了一个可执行行为集合(`ActionSet`)和目标集合(`GoalSet`)。
 
-![GOAP规则下的行为集合](../../../assets/images/2024-02-28/ActionSet.png)
+![GOAP规则下的行为集合](../../assets/images/2024-02-28/ActionSet.png)
 
 每个行为都基于GOAP规则下，具有先决条件`Precondition`和效果`Effect`。
 ```C#
@@ -102,7 +93,7 @@ public class Eat : DescriptiveTask
 
 Real Agents中你可以直接在`RealAgentSet`的编辑器中点击`Self Description`生成上述数据。
 
-![自我描述](../../../assets/images/2024-02-28/SelfDesc.png)
+![自我描述](../../assets/images/2024-02-28/SelfDesc.png)
 
 ## 步骤2：学习
 
@@ -115,15 +106,15 @@ Agent在短期记忆达到阈值时根据初始印象、评论和当前长期记
 
 根据外界输入的目标，代理在虚拟空间中实时推理。
 
-![演示项目Agent操作界面](../../../assets/images/2024-02-28/Demo1.png)
+![演示项目Agent操作界面](../../assets/images/2024-02-28/Demo1.png)
 
 LLM根据自身对每个行为的记忆找到合适的`Plan`，由于没有Planner对比，此时仅判断`Plan`是否具有可行性，如不具备，则由LLM生成（`Comment`）注入数据库。
 
-![Agent生成并评估Pla](../../../assets/images/2024-02-28/Demo2.png)
+![Agent生成并评估Pla](../../assets/images/2024-02-28/Demo2.png)
 
 <center>Agent生成并评估Plan</center>
 
-![Agent执行Plan](../../../assets/images/2024-02-28/Demo3.png)
+![Agent执行Plan](../../assets/images/2024-02-28/Demo3.png)
 
 <center>Agent执行Plan</center>
 
