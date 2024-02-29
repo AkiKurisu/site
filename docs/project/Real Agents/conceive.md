@@ -1,6 +1,6 @@
 # 在实验前——构思
 
-基于[Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442)（以下简称GA）等论文, 着重于单个人工智能代理的实时反应与学习能力。
+基于[Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442)（以下简称GA）等论文, 着重于人工智能代理的行为规划框架和实现。
 
 ## 总结GA
 
