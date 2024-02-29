@@ -1,10 +1,13 @@
 # Real Agents
 
+!!! abstract
+
+    目前还在写论文阶段，暂未开源
+
 Real Agents是一个结合传统人工智能方法和大语言模型（Large Language Models，LLM），适用于生成式人工智能代理（Generative AI Agents）的规划框架,包含一个Unity插件和演示项目。
 
 本项目的开发事由为完成我的本科毕业论文（设计）以及个人对游戏AI的兴趣。
 
-<!-- more -->
 
 ## 项目链接
 
@@ -141,7 +144,8 @@ Polygon Fantasy Kingdom is a paid asset.
 >https://assetstore.unity.com/packages/3d/environments/fantasy/polygon-fantasy-kingdom-low-poly-3d-art-by-synty-164532
 
 Example scene is optimized by Scene Optimizer created by [Procedural Worlds]
->https://assetstore.unity.com/publishers/15277)
+
+>https://assetstore.unity.com/publishers/15277
 
 
 Lowpoly Environment can be downloaded in assetstore for free.

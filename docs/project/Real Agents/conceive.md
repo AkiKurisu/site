@@ -1,4 +1,8 @@
-# 在实验前——构思
+# 构思篇
+
+!!! abstract
+
+    记录了项目开发前的Research和思考
 
 基于[Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442)（以下简称GA）等论文, 着重于人工智能代理的行为规划框架和实现。
 

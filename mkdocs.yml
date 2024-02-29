@@ -212,6 +212,9 @@ nav:
     - blog/index.md
   - 项目:
     - project/index.md
+    - Next Gen Dialogue:
+      - 简介: project/Next Gen Dialogue/readme.md
+      - 演示项目: project/Next Gen Dialogue/demo.md
     - Real Agents:
       - 简介: project/Real Agents/readme.md
       - 思考: project/Real Agents/conceive.md
