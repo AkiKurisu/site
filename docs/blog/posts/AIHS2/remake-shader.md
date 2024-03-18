@@ -1,9 +1,10 @@
 ---
-date: 2024-03-17T19:50:54
+date: 2024-03-18T19:50:54
 authors:
   - AkiKurisu
 categories:
   - Unity
+  - AIHS2
 ---
 
 # 像人工智能一样学习：Shader逆向实验
@@ -65,7 +66,7 @@ fout frag(v2f inp)
 
 该部分代码为反编译`HoneySelect2`中`Create Skin Color`的一部分，功能为将输入颜色和贴图进行混合用以改变皮肤的颜色，但反编译的版本的色调存在问题，因为我对编写Shader不熟悉，我一开始也无从下手（大佬应该能直接看出来这些对应的操作是什么吧）。
 
-![错误的色调](../../../assets/images/2024-03-17/wrong-shader.png)
+![错误的色调](../../../assets/images/2024-03-18/wrong-shader.png)
 
 但有一个有趣的地方是反编译的ShaderLab告诉我们这个Shader使用的是`ASE Insepector`，那它大概率是用ASE连线完成的，那么事情就简单很多。
 
@@ -82,7 +83,7 @@ fout frag(v2f inp)
 
 我大概知道色调是通过HSV颜色空间操作的，在ASE中，我们可以使用`RGB to HSV`将`MainTex`转换为HSV空间。
 
-![变换颜色空间](../../../assets/images/2024-03-17/rgb2hsv.png)
+![变换颜色空间](../../../assets/images/2024-03-18/rgb2hsv.png)
 
 
 然后我们对其进行编译得到：
@@ -221,7 +222,7 @@ void main()
 
 这里`tmp`、`u_xlat0`、`source_hsv`将用于后面的差异点，我们在ASE里连一下线。
 
-![尝试连线](../../../assets/images/2024-03-17/middle-process.png)
+![尝试连线](../../../assets/images/2024-03-18/middle-process.png)
 
 ## 抽丝剥茧
 
@@ -242,7 +243,7 @@ void main()
 
 从前文可知`u_xlat0.z = u_xlat0.x -0.1`，而` u_xlat0.x `就是`hsv.z`
 
-![全部连线](../../../assets/images/2024-03-17/connect-all.png)
+![全部连线](../../../assets/images/2024-03-18/connect-all.png)
 
 我们全部连线后，发现有一点点问题，色调(Hue)有明显的差异，例如暖冷色调好像反了，而最开始我们遇到的问题就是色调的问题。
 
@@ -251,19 +252,19 @@ void main()
 !!! CallBack
     为什么有`.05`呢，前面存在一个差异的vec3刚好就是差`.05`，这并非巧合。
 
-![修复色调](../../../assets/images/2024-03-17/fix.png)
+![修复色调](../../../assets/images/2024-03-18/fix.png)
 
 
 ## 功能展示
 
 那么还原并修复了上述Shader后，我将颜色部分提取出来加上颜色混合，例如晒痕和美甲：
 
-![修复色调](../../../assets/images/2024-03-17/add1.png)
+![修复色调](../../../assets/images/2024-03-18/color-mix.png)
 
 对于输出的颜色，我们可以叠加上一些图案作为面妆：
-![最终版本](../../../assets/images/2024-03-17/final.png)
+![最终版本](../../../assets/images/2024-03-18/final.png)
 
 至此还原了`HoneySelect2`创建角色颜色贴图的Shader，游戏中使用Blit动态生成角色的颜色贴图，以减少核心Shader的Sampler数量。
 
-![渲染效果](../../../assets/images/2024-03-17/remake.png)
+![渲染效果](../../../assets/images/2024-03-18/remake.png)
 <center>在Unity中还原的渲染效果</center>
