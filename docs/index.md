@@ -13,15 +13,17 @@ search:
 
 ## 个人简介
 
-华政24届计科应届生，喜欢游戏开发。
+坐标上海，华政24届计科应届生，喜欢游戏开发  <del>什么《政法院校的劣等生》</del>。
 
-22年开始学习游戏开发。
+22年开始学习游戏开发，并和好友咕咕同制作的游戏《Reversed Space Time》获得Unity中国第一届GameJam的特别奖。
 
-23年实习于Unity China，在Unity Open Day北京站上发表独立游戏制作经验。
+23年实习于Unity中国，在Unity Open Day北京站上发表游戏制作经验。
 
-个人开发的独立游戏《进化契约》获得23年鹰角开拓芯《创新玩法设计奖》，入围第三届CUSGA全国大学生游戏开发大赛《最佳玩法设计奖》《最佳策略游戏奖》。
+个人开发的游戏《进化契约》获得23年鹰角开拓芯《创新玩法设计奖》，入围第三届CUSGA全国大学生游戏开发大赛《最佳玩法设计奖》《最佳策略游戏奖》。
 
 
 ## 致谢
 
-网站模板参考[Stalo水佬](https://github.com/stalomeo)的项目：https://github.com/stalomeow/note
+网站模板参考[Stalo](https://github.com/stalomeo)的项目：https://github.com/stalomeow/note 
+
+<del>好吧，其实是直接Copy的(#^.^#)，谢谢水佬喂食</del>

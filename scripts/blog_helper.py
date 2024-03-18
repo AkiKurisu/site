@@ -21,14 +21,14 @@ def getArgParser():
     postParser.add_argument('postTitle',
         nargs='?',
         metavar='<title>',
-        default='',
+        default='Hello world',
         help='The title of the post',
     )
     postParser.add_argument('-c', '--categories',
         nargs='*',
         dest='postCategories',
         metavar='<category>',
-        default=[],
+        default=['Unity'],
         help='The categories of the post',
     )
     postParser.add_argument('--draft',
@@ -62,7 +62,7 @@ def main():
         fp.write(f'date: {time.strftime("%Y-%m-%dT%H:%M:%S")}\n')
         fp.write(f'draft: {str(args.postDraft).lower()}\n')
         fp.write(f'authors:\n')
-        fp.write(f'  - stalomeow\n')
+        fp.write(f'  - AkiKurisu\n')
 
         if len(args.postCategories) > 0:
             fp.write(f'categories:\n')

@@ -98,14 +98,14 @@ Real Agents中你可以直接在`RealAgentSet`的编辑器中点击`Self Descrip
 
 ![自我描述](../../assets/images/2024-02-28/SelfDesc.png)
 
-## 步骤2：学习
+### 步骤2：学习
 
 调整代理模式（`AgentMode`），设置为`Training`。
 
 此时运行的`Plan`由Planner搜索，Agent同时生成一份`Plan`。如果存在差异的行为，由LLM对其原因进行反思，并生成`Comment`作为短期记忆注入数据库。
 
 Agent在短期记忆达到阈值时根据初始印象、评论和当前长期记忆对其进行总结归纳，覆盖长期记忆，以此进行迭代。
-## 步骤3：实时规划
+### 步骤3：实时规划
 
 根据外界输入的目标，代理在虚拟空间中实时推理。
 
@@ -164,9 +164,11 @@ Unity Chan animation is owned by Unity Technology Japan and under UC2 license.
 
 Medieval Animations Mega Pack is paid asset.
 
-https://assetstore.unity.com/packages/3d/animations/medieval-animations-mega-pack-12141
+>https://assetstore.unity.com/packages/3d/animations/medieval-animations-mega-pack-12141
 
 Unity Starter Asset is under the Unity Companion License and can be downloaded in assetstore for free.
+
+>https://assetstore.unity.com/packages/essentials/starter-assets-thirdperson-updates-in-new-charactercontroller-pa-196526
 
 UniVRM is under MIT license.
 
