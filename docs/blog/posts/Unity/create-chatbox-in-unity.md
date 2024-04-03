@@ -65,14 +65,14 @@ $$
 
 ### ChatGraph
 
-我们将数据的存储以输入输出的二元组形式存储，为了之后方便数据读取，我们把向量单独存在一个`NativeArray`里，通过维度`dim`和下标进行查找。
+我们将数据的存储以输入输出的二元组形式存储，为了之后方便数据读取，我们把向量单独存在一个`NativeList`里，通过维度`dim`和下标进行查找。
 
 ```C#
 public class ChatGraph : IDisposable
 {
     public List<Edge> edges = new();
     public int dim = 512;
-    public NativeArray<float> embeddings;
+    public NativeList<float> embeddings;
 }
 [Serializable]
 public struct Edge
@@ -118,11 +118,11 @@ public class Embedding
 public async Task Run(GenerateContext context)
 {
   TensorFloat[] inputTensors = InputConverter.Convert(ops, context.input);
-  if (Filter.Filter(ops, inputTensors, EmbeddingDB, out int index, out float score))
+  if (Filter.Filter(ops, inputTensors, EmbeddingDB, ref ids, ref scores))
   {
       context.flag |= 1 << 0;
       context.flag |= 1 << 1;
-      SelectorPostProcessing(inputTensors, index, context);
+      SelectorPostProcessing(inputTensors,ref ids, context);
   }
   else
   {
@@ -165,36 +165,12 @@ public async Task Run(GenerateContext context)
 ```
 ### Filter
 
-`Filter`则对输入向量和`ChatGraph`中的向量进行计算：
+`Filter`则对输入向量和`ChatGraph`中的向量进行计算并过滤出可选择的结点：
 ```C#
-public bool Filter(Ops ops, IReadOnlyList<TensorFloat> inputTensors, IEmbeddingDataBase db, out int index, out float score)
-{
-    score = 0;
-    index = -1;
-    int count = db.Count;
-    if (count == 0) return false;
-    int embeddingLength = inputTensors[0].shape[1];
-    TensorFloat[] tensors = db.AllocateEmbeddings(embeddingLength);
-    TensorFloat inputScores = SentenceSimilarityScores(ops, inputTensors[0], tensors[0]);
-    TensorFloat outputScores = SentenceSimilarityScores(ops, inputTensors[1], tensors[1]);
-    var thresholdTensor = TensorFloat.Zeros(outputScores.shape);
-    for (int i = 0; i < count; ++i)
-    {
-        thresholdTensor[i] = outputThreshold;
-    }
-    var maskTensor = TensorFloat.Zeros(outputScores.shape);
-    //过滤掉答案（OutputPort）和上次相似度大于阈值的Edges
-    inputScores = ops.Where(ops.GreaterOrEqual(outputScores, thresholdTensor), maskTensor, inputScores);
-    TensorInt scoreIndex = ops.ArgMax(inputScores, 1, true);
-    index = scoreIndex[0];
-    score = inputScores[index];
-    return score >= inputThreshold;
-}
-private static TensorFloat SentenceSimilarityScores(Ops ops, TensorFloat InputSequence, TensorFloat ComparisonSequences)
-{
-    return ops.MatMul2D(InputSequence, ComparisonSequences, false, true);
-}
+public bool Filter(Ops ops, IReadOnlyList<TensorFloat> inputTensors, IEmbeddingDataBase db, ref NativeArray<int> ids, ref NativeArray<float> scores){}
 ```
+
+`Filter`需要与`Selector`进行组合，例如在其他语言编写的`RAG系统`中，我们可以用`Embedding Model`计算最大相似度筛选出第一个文本。也可以使用`Embedding Model`先以`TopK`方式筛选出多个，再由`Reranker Model`对筛选出的进行精细化的排序。
 
 ### Generator
 
