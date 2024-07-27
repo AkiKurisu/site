@@ -14,7 +14,7 @@ categories:
 
 ## 前置知识
 
-但在使用AI工具之前，你需要对游戏开发中的一些常见设计模式和`Unity`、`Unreal`等游戏引擎提供的开发范式（例如`Unity`推荐的组件式模块开发）。
+在开发AI之前，你应了解游戏开发中的一些常见设计模式，并且熟悉`Unity`、`Unreal`等游戏引擎提供的开发范式（例如`Unity`推荐的组件式模块开发）。
 
 ## GamePlay实现
 
@@ -227,6 +227,14 @@ public abstract class TPSAction : Action
     }
 }
 ```
+巡逻状态行为树
+
+![Patrol](../../../assets/images/2024-07-27/simple-patrol-bt.png)
+
+战斗状态行为树
+
+![Combat](../../../assets/images/2024-07-27/simple-combat-bt.png)
+
 
 
 ### 状态机控制行为树
