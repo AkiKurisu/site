@@ -4,7 +4,6 @@ authors:
   - AkiKurisu
 categories:
   - Unity
-  - AIHS2
 ---
 
 # 像人工智能一样学习：Shader逆向实验
