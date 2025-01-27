@@ -1,6 +1,5 @@
 ---
 date: 2025-01-26T23:13:42
-draft: true
 authors:
   - AkiKurisu
 categories:
@@ -92,7 +91,7 @@ NodeGraphProcessor使用了GraphView、SerializeReference等Unity2020版本后�
   
 - 缺少对于非UObject的对象序列化支持，可参考其内置的[SerializableObject](https://github.com/alelievr/NodeGraphProcessor/blob/master/Assets/com.alelievr.NodeGraphProcessor/Runtime/Utils/SerrializableObject.cs)
 
-- 运行时Port传递数据基于反射，并且有拆装箱，详见[NodePort.PullData](https://github.com/alelievr/NodeGraphProcessor/blob/master/Assets/com.alelievr.NodeGraphProcessor/Runtime/Elements/NodePort.cs#L298)
+- 运行时Port的设计基于反射，带来不可避免的拆装箱，详见[NodePort.PullData](https://github.com/alelievr/NodeGraphProcessor/blob/master/Assets/com.alelievr.NodeGraphProcessor/Runtime/Elements/NodePort.cs#L298)
 
 ## 问题总结
 
@@ -108,19 +107,19 @@ NodeGraphProcessor使用了GraphView、SerializeReference等Unity2020版本后�
 
 ## 设计目标
 
-基于上述问题，我认为设计一个新的轮子需要满足以下目标：
+基于上述问题，我认为设计一个新的轮子除了具备上述轮子易于扩展易于上手的优点还需要满足以下目标：
 
 - 能够轻松在C#和蓝图之间调用
   
-- 更友好的编辑器
+- 更友好的编辑器，尤其是面向设计师和非专业程序员
 
-- 运行时拥有更好的性能
-
-- 轻松拓展功能
+- 运行时拥有更好的性能，需要尽早在设计环节解决
 
 那么本篇笔者先分析了一下现有轮子的问题与新轮子的设计目标，
 下一期我将会分享一些具体问题的设计思路与解决方案。
 当然项目一直在持续开发中，欢迎提issues。
 
-## 引用
+## 项目
+![Ceres](../../../assets/images/2025-01-27/ceres_banner.png)
+
 https://github.com/AkiKurisu/Ceres
