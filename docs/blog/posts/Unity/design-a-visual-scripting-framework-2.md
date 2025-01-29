@@ -18,7 +18,7 @@ Ceres是我基于自身两年半的Unity独立游戏制作经验和半年的Unre
 
 本期文章系列旨在分享我开发中的一些设计点和解决问题的过程。
 
-上篇文章详见：[如何设计一个Unity可视化脚本框架（二）](./design-a-visual-scripting-framework-1.md)
+上篇文章详见：[如何设计一个Unity可视化脚本框架（一）](./design-a-visual-scripting-framework-1.md)
 
 ## 底层设计
 
