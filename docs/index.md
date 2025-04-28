@@ -25,5 +25,4 @@ search:
 
 ## 致谢
 
-网站模板参考自[Stalo](https://github.com/stalomeo)的Blog，谢谢水佬投喂！
-> https://github.com/stalomeow/note 
+网站模板来自[stalomeow/note](https://github.com/stalomeow/note)，感谢水佬投喂！
