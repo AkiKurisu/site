@@ -7,25 +7,25 @@ categories:
   - Unity
 ---
 
-# 头发半透明渲染OIT技巧
+# 如何让头发渲染更丝滑
 
 <!-- more -->
 
-目前游戏中应用广泛的Alpha Dithering + TAA渲染头发的方式，对于像暖暖这种需要静距离观察的应用场景来说，效果还是不够精细。
+目前游戏中应用广泛的Alpha Dithering + TAA渲染头发的方式，在分辨率不够高时会有明显的噪点，对于像暖暖这种需要静距离观察的应用场景来说，效果还是不够精细（丝滑）。
 
-一方面渲染上还是有噪点，另一方面如果不使用单独的TAA Buffer，依赖全屏TAA，就限制了玩家可自定义AA方案，而这个在广泛的3A游戏中都是有多种方案可供选择。
+另一方面如果不使用单独的Hair TAA，依赖全屏TAA（后处理），就限制了玩家自定义AA的选择，而大部分3A游戏中都是有多种AA方案可供选择的。
 
-而如果采取Alpha Blend方式，不可避免遇到半透明渲染排序问题。因此要使用Order Independent Transparency (OIT)技术解决这一问题。
+如果采取Alpha Blend方式，不可避免遇到半透明渲染排序问题。因此我们要使用Order Independent Transparency (OIT)技术解决这一问题。
 
 ## WOIT
 
-OIT的流派有很多种，例如Depth Peeling, Pixel Linked List, Movement-Based等，这里我们使用Weighted Blended。Weighed Blended需要通过合适的权重函数来近似计算Over算子, 其由英伟达在13年提出，详见 [NVIDIA/Weighted Blended Order-Independent Transparency](https://jcgt.org/published/0002/02/09/)。
+OIT的流派有很多种，例如Depth Peeling, Pixel Linked List, Moment-Based等，这里我们使用Weighted Blended。Weighed Blended需要通过合适的权重函数来近似计算Over算子, 其由英伟达在13年提出，详见 [NVIDIA/Weighted Blended Order-Independent Transparency](https://jcgt.org/published/0002/02/09/)。
 
 ![Equation](../../../assets/images/2025-04-27/equation.png)
 
 ![Equation Compare](../../../assets/images/2025-04-27/equation_compare.png)
 
-以下是Paper作者Morgan McGuire在其博客[Weighted, Blended Order-Independent Transparency](https://casual-effects.blogspot.com/2014/03/weighted-blended-order-independent.html)中给出一个的OpenGL实现的示例。
+以下是Paper作者Morgan McGuire在其[Blog](https://casual-effects.blogspot.com/2014/03/weighted-blended-order-independent.html)中给出一个的OpenGL实现的示例。
 
 Accumulate部分：
 
@@ -134,19 +134,23 @@ Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://
 
 这种方式是把OIT半透明放最后渲染，在例如单角色展示大厅的场景中效果较好，但因为没有正确的渲染排序，头发会覆盖在所有半透物体上。
 
+![OIT Write Depth](../../../assets/images/2025-04-27/oit_write_depth.png)
+
 ## 最终混合方案
 
 上面的补丁方案都在现有渲染管线上存在限制和缺陷，`After Transaprent` 的方式效果最好，但如果前面有半透遮挡就会有问题。
 
 GPU Gem3中为了优化半透粒子，将其渲染到一张单独的降分辨率的RT上，即半透分离渲染，最后和Color Buffer进行混合，但由于深度精度缺失，混合后，半透边缘会被背景颜色渗透。
 
-[Blocky Artifacts](../../../assets/images/2025-04-27/blocky_artifacts.png)
+![Blocky Artifacts](../../../assets/images/2025-04-27/blocky_artifacts.png)
 
 其解决方案是结合Sobel Edge Detect对边缘进行Stencil标记，然后在全分辨率下对标记区域再绘制一遍半透物体。
 
 受到启发，我在`After Transaprent`方案和`Depth Postpass`基础上，在OIT Pass中写入了Stencil，在Draw Transparent Objects之后，对标记区域再重新Overdraw一次。
 
 该方案解决了普通半透物体被头发穿透的问题，同时因为写入了深度，Overdraw不会在OIT物体背后重复绘制。
+
+![OIT Overdraw](../../../assets/images/2025-04-27/oit_overdraw_transparent.png)
 
 Nice!
 
