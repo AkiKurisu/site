@@ -19,7 +19,9 @@ categories:
 
 ## WOIT
 
-OIT的流派有很多种，例如Depth Peeling, Pixel Linked List, Moment-Based等，这里我们使用Weighted Blended。Weighed Blended需要通过合适的权重函数来近似计算Over算子, 其由英伟达在13年提出，详见 [NVIDIA/Weighted Blended Order-Independent Transparency](https://jcgt.org/published/0002/02/09/)。
+OIT的流派有很多种，例如Depth Peeling, Pixel Linked List, Moment-Based等，这里我们先尝试使用Weighted Blended Order-Independent Transparency (WOIT)方案。
+
+WOIT需要通过合适的权重函数来近似计算Over算子, 其由英伟达在13年提出，详见 [NVIDIA/Weighted Blended Order-Independent Transparency](https://jcgt.org/published/0002/02/09/)。
 
 ![Equation](../../../assets/images/2025-04-27/equation.png)
 
@@ -88,15 +90,19 @@ Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://
 
 实现上，可以用Stencil Mask标记需要混合的不透明片元后单独渲染一个Transparent Hair Pass来实现，非标记区域头发还是普通的Opaque渲染。
 
+### TAA & Dithering方案
+
+开篇提到的方案，基于时域的降噪/AA/超分技术现在使用的非常广泛。要效果好对于分辨率有一定要求，否则在糊的情况下，TAA会让画面更糟糕。
+
 ### 双Pass渲染
 
-写实项目中，，半透部分Alpha Blend的目的是为了处理边缘锯齿。
+写实项目中，半透部分Alpha Blend的目的是为了处理边缘锯齿。
 
-那么在Dithering方案之前，通常用双Pass来解决，即一个Pass用来渲染Alpha高区的部分，一个Pass用来渲染Alpha低区的部分。
+在TAA & Dithering方案流行之前，通常用双Pass来解决，即一个Pass用来渲染Alpha高区的部分，一个Pass用来渲染Alpha低区的部分。
 
 这个方案的主要问题是边缘部分的半透明叠加时仍会存在排序问题。
 
-## OIT半透方案
+## WOIT半透方案
 
 上述双Pass渲染的问题刚好可以由WOIT来解决。
 
@@ -136,7 +142,7 @@ Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://
 
 ![OIT Write Depth](../../../assets/images/2025-04-27/oit_write_depth.png)
 
-## 最终混合方案
+## WOIT混合方案
 
 上面的补丁方案都在现有渲染管线上存在限制和缺陷，`After Transaprent` 的方式效果最好，但如果前面有半透遮挡就会有问题。
 
@@ -152,7 +158,15 @@ GPU Gem3中为了优化半透粒子，将其渲染到一张单独的降分辨率
 
 ![OIT Overdraw](../../../assets/images/2025-04-27/oit_overdraw_transparent.png)
 
-Nice!
+## MBOIT方案
+
+略有遗憾的是，在边缘部分，Overdraw仍会有一定不自然的混合，例如角色处于有色玻璃窗后时会比较明显。
+
+如果要完全解决问题，还是希望能通过在一个pass中解决所有半透明物体，这需要修改渲染管线让所有Transparent物体由OIT Pass接管，并且需要OIT本身的算法能支持Alpha低区到高区的混合，而正如Creative Assembly在[全面战争：三国](https://www.gdcvault.com/play/1026177/)中提到，WOIT的效果在Alpha区间为20% to 90%的表现较好，其他区域混合效果不佳，需要手动调整权重因子，这导致各种Magic Number的引入。
+
+因此全面战争：三国的制作组转而使用了MBOIT。
+
+Moment Based Order Independent Transparency (MBOIT)由知名电影特效公司Weta Digital提出，详见[Weta Digital - MomentTransparency](https://dl.acm.org/doi/10.1145/3231578.3231585)。
 
 ## 引用
 
@@ -163,3 +177,7 @@ Nice!
 [Morgan McGuire - Weighted, Blended Order-Independent Transparency](https://casual-effects.blogspot.com/2014/03/weighted-blended-order-independent.html)
 
 [Matt - Weighted Blended Order-Independent Transparency](https://therealmjp.github.io/posts/weighted-blended-oit/)
+
+[Instancing and Order Independent Transparency in Total War: THREE KINGDOMS](https://www.gdcvault.com/play/1026177/)
+
+[Weta Digital - MomentTransparency](https://dl.acm.org/doi/10.1145/3231578.3231585)
