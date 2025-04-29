@@ -17,11 +17,11 @@ categories:
 
 如果采取Alpha Blend方式，不可避免遇到半透明渲染排序问题。因此我们要使用Order Independent Transparency (OIT)技术解决这一问题。
 
-## WOIT
+## WBOIT
 
-OIT的流派有很多种，例如Depth Peeling, Pixel Linked List, Moment-Based等，这里我们先尝试使用Weighted Blended Order-Independent Transparency (WOIT)方案。
+OIT的流派有很多种，例如Depth Peeling, Pixel Linked List, Moment-Based等，这里我们先尝试使用Weighted Blended Order-Independent Transparency (WBOIT)方案。
 
-WOIT需要通过合适的权重函数来近似计算Over算子, 其由英伟达在13年提出，详见 [NVIDIA/Weighted Blended Order-Independent Transparency](https://jcgt.org/published/0002/02/09/)。
+WBOIT需要通过合适的权重函数来近似计算Over算子, 其由英伟达在13年提出，详见 [NVIDIA/Weighted Blended Order-Independent Transparency](https://jcgt.org/published/0002/02/09/)。
 
 ![Equation](../../../assets/images/2025-04-27/equation.png)
 
@@ -73,12 +73,12 @@ OpenGL BlendFunc参考如下：
 
 ## 半透问题
 
-Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://therealmjp.github.io/posts/weighted-blended-oit/)中提到了WOIT近似计算的问题，对于标记为半透明，但Alpha实际很大的物体，如果权重函数的曲线不够陡峭即Power系数不够大时，WOIT的Blend会出现问题，即本应不透明的物体看起来变得透明了。
+Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://therealmjp.github.io/posts/weighted-blended-oit/)中提到了WBOIT近似计算的问题，对于标记为半透明，但Alpha实际很大的物体，如果权重函数的曲线不够陡峭即Power系数不够大时，WBOIT的Blend会出现问题，即本应不透明的物体看起来变得透明了。
 
 ![HiOpacity](../../../assets/images/2025-04-27/hiopacity_boit.png)
 
 
-而头发本质是不透明的，因此完全使用WOIT是不可行的（不然就看到脑袋了）。
+而头发本质是不透明的，因此完全使用WBOIT是不可行的（不然就看到脑袋了）。
 
 ## 头发半透方案
 
@@ -102,9 +102,9 @@ Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://
 
 这个方案的主要问题是边缘部分的半透明叠加时仍会存在排序问题。
 
-## WOIT半透方案
+## WBOIT半透方案
 
-上述双Pass渲染的问题刚好可以由WOIT来解决。
+上述双Pass渲染的问题刚好可以由WBOIT来解决。
 
 因此我们以URP为例，调整一下方案:
 
@@ -142,7 +142,7 @@ Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://
 
 ![OIT Write Depth](../../../assets/images/2025-04-27/oit_write_depth.png)
 
-## WOIT混合方案
+## WBOIT混合方案
 
 上面的补丁方案都在现有渲染管线上存在限制和缺陷，`After Transaprent` 的方式效果最好，但如果前面有半透遮挡就会有问题。
 
@@ -162,11 +162,17 @@ GPU Gem3中为了优化半透粒子，将其渲染到一张单独的降分辨率
 
 略有遗憾的是，在边缘部分，Overdraw仍会有一定不自然的混合，例如角色处于有色玻璃窗后时会比较明显。
 
-如果要完全解决问题，还是希望能通过在一个pass中解决所有半透明物体，这需要修改渲染管线让所有Transparent物体由OIT Pass接管，并且需要OIT本身的算法能支持Alpha低区到高区的混合，而正如Creative Assembly在[全面战争：三国](https://www.gdcvault.com/play/1026177/)中提到，WOIT的效果在Alpha区间为20% to 90%的表现较好，其他区域混合效果不佳，需要手动调整权重因子，这导致各种Magic Number的引入。
+如果要完全解决问题，还是希望能通过在一个pass中解决所有半透明物体，这需要修改渲染管线让所有Transparent物体由OIT Pass接管，并且需要OIT本身的算法能支持Alpha低区到高区的混合，而正如Creative Assembly在[全面战争：三国](https://www.gdcvault.com/play/1026177/)中提到，WBOIT的效果在Alpha区间为20% to 90%的表现较好，其他区域混合效果不佳，需要手动调整权重因子，这导致各种Magic Number的引入。
 
 因此全面战争：三国的制作组转而使用了MBOIT。
 
 Moment Based Order Independent Transparency (MBOIT)由知名电影特效公司Weta Digital提出，详见[Weta Digital - MomentTransparency](https://dl.acm.org/doi/10.1145/3231578.3231585)。
+
+由于MBOIT本身是基于WBOIT改造的，实现完WBOIT后很容易改成MBOIT，这里实现步骤略过，可参考凯奥斯大佬的[文章](https://zhuanlan.zhihu.com/p/83069802)和[实现](https://github.com/ecidevilin/KhaosLWRP)。
+
+从论文给出的benchmark上看，低精度下，带宽开销并没有t显著提高，但获得了更好的效果，属于WBOIT的上位替代。
+
+![MBOIT Benchmark](../../../assets/images/2025-04-27/mboit_benchmark.png)
 
 ## 引用
 
