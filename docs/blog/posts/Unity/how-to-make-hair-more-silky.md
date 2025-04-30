@@ -170,7 +170,7 @@ Moment Based Order Independent Transparency (MBOIT)由知名电影特效公司We
 
 由于MBOIT本身是基于WBOIT改造的，实现完WBOIT后很容易改成MBOIT，这里实现步骤略过，可参考凯奥斯大佬的[文章](https://zhuanlan.zhihu.com/p/83069802)和[实现](https://github.com/ecidevilin/KhaosLWRP)。
 
-从论文给出的benchmark上看，低精度下，带宽开销并没有t显著提高，但获得了更好的效果，属于WBOIT的上位替代。
+从论文给出的benchmark上看，低精度下，带宽开销并没有显著提高，但获得了更好的效果，属于WBOIT的上位替代。
 
 ![MBOIT Benchmark](../../../assets/images/2025-04-27/mboit_benchmark.png)
 
