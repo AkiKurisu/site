@@ -175,9 +175,9 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void FuncIL2CPP_Generic_gshared (
 	const Il2CppFullySharedGenericAny L_0 = alloca(SizeOf_TThis);
 	const Il2CppFullySharedGenericAny L_1 = alloca(SizeOf_T1);
 	{
-		il2cpp_codegen_memcpy(L_0, (il2cpp_codegen_class_is_value_type(il2cpp_rgctx_data_no_init(method->rgctx_data, 0)) ? ___0_thisType : &___0_thisType), SizeOf_TThis);
-		il2cpp_codegen_memcpy(L_1, (il2cpp_codegen_class_is_value_type(il2cpp_rgctx_data_no_init(method->rgctx_data, 1)) ? ___1_arg1 : &___1_arg1), SizeOf_T1);
-		void* L_2 = ___2_methodPtr;
+		il2cpp_codegen_memcpy(L_0, (il2cpp_codegen_class_is_value_type(il2cpp_rgctx_data_no_init(method->rgctx_data, 0)) ? thisType : &thisType), SizeOf_TThis);
+		il2cpp_codegen_memcpy(L_1, (il2cpp_codegen_class_is_value_type(il2cpp_rgctx_data_no_init(method->rgctx_data, 1)) ? arg1 : &arg1), SizeOf_T1);
+		void* L_2 = methodPtr;
 		InvokerActionInvoker2< Il2CppFullySharedGenericAny, Il2CppFullySharedGenericAny* >::Invoke(
             il2cpp_codegen_get_direct_method_pointer((const RuntimeMethod*)L_2),
             (const RuntimeMethod*)L_2,
