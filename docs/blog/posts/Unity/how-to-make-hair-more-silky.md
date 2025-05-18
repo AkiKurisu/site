@@ -1,6 +1,5 @@
 ---
 date: 2025-04-27T10:56:46
-draft: true
 authors:
   - AkiKurisu
 categories:
@@ -132,7 +131,9 @@ Matt大佬在其博客[Weighted Blended Order-Independent Transparency](https://
 
 这种方式是在绘制半透头发的时候写入深度。
 
-但半透明物体渲染正常来说是不能写入深度的，原因在于影响了半透明的ZTest。因此需要和HDRP一样增加一个Depth Postpass，在渲染完OIT半透后再单独渲染一遍半透部分的Depth，该方案额外的收益是顺便解决了Dof等依赖深度的后处理效果。
+但半透明物体渲染正常来说是不能写入深度的，原因在于影响了半透明的ZTest。因此需要和HDRP一样增加一个Depth Postpass，在渲染完OIT半透后再单独渲染一遍半透部分的Depth，该方案额外的收益是顺便解决了DepthOfField、Volumetric Light等依赖深度的后处理、屏幕空间效果。
+
+工程实践上需要注意URP中Camera Depth Attachment Copy到Off-Screen Depth Texture的时机，如果不修改渲染管线，可能需要一个额外的CopyDepthPass在OIT Pass后重新拷贝一遍深度。
 
 但存在的问题是头发Alpha低区写入深度后， 被覆盖的像素在Transparent Pass中就不被渲染了，头发在半透物体前会产生边缘的混合错误。
 
@@ -154,15 +155,17 @@ GPU Gem3中为了优化半透粒子，将其渲染到一张单独的降分辨率
 
 受到启发，我在`After Transaprent`方案和`Depth Postpass`基础上，在OIT Pass中写入了Stencil，在Draw Transparent Objects之后，对标记区域再重新Overdraw一次。
 
-该方案解决了普通半透物体被头发穿透的问题，同时因为写入了深度，Overdraw不会在OIT物体背后重复绘制。
+最终该方案解决了普通半透物体被头发穿透的问题，通过写入深度，Overdraw不会在OIT物体背后重复绘制，并且获得了正确的后处理效果作为额外收益。
 
 ![OIT Overdraw](../../../assets/images/2025-04-27/oit_overdraw_transparent.png)
 
-## MBOIT方案
+## 拓展 - MBOIT方案
 
 略有遗憾的是，在边缘部分，Overdraw仍会有一定不自然的混合，例如角色处于有色玻璃窗后时会比较明显。
 
-如果要完全解决问题，还是希望能通过在一个pass中解决所有半透明物体，这需要修改渲染管线让所有Transparent物体由OIT Pass接管，并且需要OIT本身的算法能支持Alpha低区到高区的混合，而正如Creative Assembly在[全面战争：三国](https://www.gdcvault.com/play/1026177/)中提到，WBOIT的效果在Alpha区间为20% to 90%的表现较好，其他区域混合效果不佳，需要手动调整权重因子，这导致各种Magic Number的引入。
+如果要完全解决问题，还是希望能通过在一个pass中解决所有半透明物体，这需要修改渲染管线让所有Transparent物体由OIT Pass接管，并且需要OIT本身的算法能支持Alpha低区到高区的混合。
+
+正如Creative Assembly在[全面战争：三国](https://www.gdcvault.com/play/1026177/)中提到，WBOIT的效果在Alpha区间为20% ~ 90%的表现较好，其他区域混合效果不佳，虽然可以手动调整权重因子，但如此一来引入各种Magic Number会让逻辑变得脏乱。
 
 因此全面战争：三国的制作组转而使用了MBOIT。
 
@@ -170,7 +173,7 @@ Moment Based Order Independent Transparency (MBOIT)由知名电影特效公司We
 
 由于MBOIT本身是基于WBOIT改造的，实现完WBOIT后很容易改成MBOIT，这里实现步骤略过，可参考凯奥斯大佬的[文章](https://zhuanlan.zhihu.com/p/83069802)和[实现](https://github.com/ecidevilin/KhaosLWRP)。
 
-从论文给出的benchmark上看，低精度下，带宽开销并没有显著提高，但获得了更好的效果，属于WBOIT的上位替代。
+从论文给出的benchmark上看，低精度下，带宽开销并没有显著提高，但获得了更好的效果，属于WBOIT的上位替代，等笔者有空了抄一下看看效果。
 
 ![MBOIT Benchmark](../../../assets/images/2025-04-27/mboit_benchmark.png)
 
