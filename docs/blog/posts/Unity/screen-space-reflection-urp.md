@@ -22,11 +22,11 @@ Hiz优化的算法详解：[Sugu Lee - Screen Space Reflections : Implementation
 
 因为URP上没有SSR，得自己实现或者第三方插件，这里选取了开源的[JoshuaLim007/Unity-ScreenSpaceReflections-URP](https://github.com/JoshuaLim007/Unity-ScreenSpaceReflections-URP)和[EricHu33/URP_SSR](https://github.com/EricHu33/URP_SSR)。前者提供了三种SSR的实现算法，并包括了上述两种优化方案，后者额外拓展了部分算法，并支持Forward管线以及RenderGraph API。
 
-## ForwardGBuffer
+## ForwardGBuffer适配
 
-SSR至少需要采样Depth、Normal、Metallic/Specular，在新的URP Forward管线中，Normal可以直接从`DepthNormalPass`生成的`CameraNormalTexture`中采样。而Metallic则无法获得，Eric的实现中增加了一个ThinGBufferPass（我倾向于叫ForwardGBuffer）来专门收集BRDFData的Reflectivity。
+SSR至少需要采样Depth、Normal、Smoothness/Roughness，在新的URP Forward管线中，Normal可以直接从`DepthNormalPass`生成的`CameraNormalTexture`中采样。而Smoothness则无法获得，Eric的实现中是增加了一个ThinGBufferPass（我倾向于叫ForwardGBuffer）来专门收集BRDFData的Reflectivity。
 
-但不知道为啥，2022的实现漏了，这里补一下。
+笔者是在2022开发的，这里补一下Eric中缺失的传统ScriptableRenderPass实现：
 
 ```csharp
 public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -53,6 +53,83 @@ public override void Execute(ScriptableRenderContext context, ref RenderingData 
 ```
 
 这里比较hack的地方是使用`overrideShader`来fetch当前材质中和`overrideShader`属性名称相同的值。
+
+但工程上实践后，笔者认为这不是一个好的方式，它对于标准化的Lit.shader而言是有效的，但对于更多自定义的材质就不见得那么有效了。
+因此在每个需要使用SSR的shader中手动增加一个ForwardGBufferPass才是更合理的方式。例如下面直接在Lit.shader中添加一个ForwardGBufferPass。
+
+```hlsl
+Pass
+{
+    Name "ForwardGBuffer"
+    Tags
+    {
+        "LightMode" = "ForwardGBuffer"
+    }
+    
+    ZWrite Off
+    Cull Off
+    ZTest Equal
+    
+    // To be able to tag stencil with disableSSR information for forward
+    Stencil
+    {
+        WriteMask [_StencilWriteMaskGBuffer]
+        Ref [_StencilRefGBuffer]
+        Comp Always
+        Pass Replace
+    }
+    
+    HLSLPROGRAM
+    #pragma target 4.5
+    #pragma shader_feature_local_fragment _SPECULAR_SETUP
+    
+    //--------------------------------------
+    // GPU Instancing
+    #pragma multi_compile_instancing
+    #pragma instancing_options renderinglayer
+    #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+                
+    #include "LitForwardGBufferPass.hlsl"
+
+    #pragma vertex LitPassVertex
+    #pragma fragment LitForwardGBufferPassFragment
+
+    half4 LitForwardGBufferPassFragment(Varyings input) : SV_Target
+    {
+        UNITY_SETUP_INSTANCE_ID(input);
+        UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+        SurfaceData surfaceData = (SurfaceData)0;
+        InitializeStandardLitSurfaceData(input.uv, surfaceData);
+        BRDFData brdfData = (BRDFData)0;
+
+        // NOTE: can modify "surfaceData"...
+        InitializeBRDFData(surfaceData, brdfData);
+        return surfaceData.smoothness;
+    }
+    ENDHLSL
+}
+```
+
+类似HDRP的实现，为了控制哪些区域需要SSR，我们可以在ForwardGBuffer中写入Stencil，然后在SSR中跳过非Mask区域。
+
+```hlsl
+bool doesntReceiveSSR = false;
+uint stencilValue = GetStencilValue(LOAD_TEXTURE2D_X(_StencilTexture, positionSS.xy));
+doesntReceiveSSR = (stencilValue & STENCIL_USAGE_IS_SSR) == 0;
+if (doesntReceiveSSR)
+{
+    return half4(0, 0, 0, 0);
+}
+```
+
+StencilTexture需要从Pass中传入：
+
+```c#
+var depthTexture = GetCameraDepthTexture(); // _CameraDepthAttachment 或 _CameraDepthTexture 根据你的Stencil写入在哪
+cmd.SetGlobalTexture("_StencilTexture", depthTexture, RenderTextureSubElement.Stencil);
+```
+
 
 ## Hiz优化
 
@@ -84,11 +161,24 @@ float SampleDepthPyramid(float2 uv, int mipLevel)
 
 Ok，这也抄走。然后笔者看到HDRP对于第一个Mipmap即完整的DepthBuffer的拷贝是使用Compute Shader进行加速的，也抄了。
 
-## TAA
+## TAA适配
 
 HDRP的SSR还有一个TAA流程，但这块要抄HDRP的实现在没有RenderGraph的情况下会比较复杂，所以笔者这里就不阐释了。URP 14里要实现的话和抄一遍内置的TAA差不多，只是把累加的目标换一下。
 
 另一种是不使用SSR的TAA但开启相机TAA的情况，需要修改下SSR算法中的参数。如将`UNITY_MATRIX_VP`替换为`_NonJitteredViewProjMatrix`， 否则相机拉远反射面会有明显抖动。
+
+## 重要性采样
+
+在Eric和Joshua的SSR实现中，反射方向是直接使用视线和法线`reflect`获得，没有Glossy效果，只是根据金属度进行过渡，在粗糙度较高时效果略差。
+
+而HDRP的反射方向使用了基于[Eric Heitz.2018. Sampling the GGX Distribution of Visible Normals](https://jcgt.org/published/0007/04/01/paper.pdf)提出的VNDF重要性采样方法，更物理精确，Glossy效果更准确。
+
+![VNDF](../../../assets/images/2025-05-13/vndf.png)
+
+这部分知识推荐看蛋白胨大佬的文章[Importance Sampling PDFs (VNDF, Spherical Caps)](https://zhuanlan.zhihu.com/p/682281086)和三月雨大佬的实践[Visible NDF重要性采样实践](https://zhuanlan.zhihu.com/p/690342321)。
+
+因此这块我们也可以直接抄到URP下，保留原来的近似方法，移动端性能较差的话仍使用它。
+
 
 ## 效果
 
