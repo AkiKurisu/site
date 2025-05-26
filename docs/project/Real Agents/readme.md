@@ -1,9 +1,5 @@
 # Real Agents
 
-!!! abstract
-
-    目前还在写论文阶段，暂未开源
-
 Real Agents是一个结合传统人工智能方法和大语言模型（Large Language Models，LLM），适用于生成式人工智能代理（Generative AI Agents）的规划框架,包含一个Unity插件和演示项目。
 
 本项目的开发事由为完成我的本科毕业论文（设计）以及个人对游戏AI的兴趣。
@@ -25,25 +21,13 @@ https://github.com/AkiKurisu/Real-Agents
 
 由于运行时使用OpenAI API，游戏不具稳定性，仅用作实验用途
 
-
-## 依赖
-
-1. AkiAI https://github.com/AkiKurisu/AkiAI
-2. AkiBT https://github.com/AkiKurisu/AkiBT
-3. AkiGOAP https://github.com/AkiKurisu/AkiGOAP
-4. Next Gen Dialogue https://github.com/AkiKurisu/Next-Gen-Dialogue
-
-## 下载Demo源码或EXE
-
-见Release页面
-
 ## Demo部署
+
 如果选用词向量嵌入则需要额外本地部署LangChain Server
 
 命令行输入`pip install requirement.txt`安装依赖库
 
 ## 原理
-
 
 先根据GOAP的数据用LLM标注Action和Goal。
 
@@ -105,6 +89,7 @@ Real Agents中你可以直接在`RealAgentSet`的编辑器中点击`Self Descrip
 此时运行的`Plan`由Planner搜索，Agent同时生成一份`Plan`。如果存在差异的行为，由LLM对其原因进行反思，并生成`Comment`作为短期记忆注入数据库。
 
 Agent在短期记忆达到阈值时根据初始印象、评论和当前长期记忆对其进行总结归纳，覆盖长期记忆，以此进行迭代。
+
 ### 步骤3：实时规划
 
 根据外界输入的目标，代理在虚拟空间中实时推理。
