@@ -184,22 +184,25 @@ float SampleDepthPyramid(float2 uv, int mipLevel)
 
 ## 优化后效果
 
-使用了HDRP的实现后在Unity2022 Forward渲染路径下的效果：
+使用了HDRP的实现后在Unity2022 Forward渲染路径下的效果，因为是直接后处理混合上去的，AO啥的都没有了，这块我们下一步进行优化。
 ![SSR](../../../assets/images/2025-05-13/ssr.png)
 
-## TAA适配
+## 渲染流程
 
-HDRP的SSR还有一个TAA流程，但这块要抄HDRP的实现在没有RenderGraph的情况下会比较复杂，所以笔者这里就不阐释了。URP 14里要实现的话和抄一遍内置的TAA差不多，只是把累加的目标换一下。
+上文仅提到了采样和算法上的差异，下一步我们来看渲染流程。对于SSR的渲染流程，笔者总结了以下四种模式：
 
-另一种是不使用SSR的TAA但开启相机全屏TAA的情况，需要修改下算法中的参数。如将 `UNITY_MATRIX_VP` 替换为 `_NonJitteredViewProjMatrix`， 否则相机拉远反射面会有明显抖动。
+1. 在Pixel Shader中Tracing、采样当前帧并应用。
+2. BasePass之后Tracing，后处理采样当前帧并应用。
+3. BasePass之后Tracing并Reproject上一帧颜色，在LightingPass中应用。
+4. BasePass之前Tracing并Reproject上一帧颜色，在BasePass中应用。
 
-## 应用模式
+第一种在新URP Sample的Water Shader中进行了使用，因为是Transparent物体，可以在DrawPass中获取CameraOpaqueTexture进行采样。适用于透明物体，同时兼容两种渲染路径。
 
-Eric的实现中SSR是在后处理阶段采样当前帧颜色并应用上的。这一阶段可以根据前面的Hit Result计算SSR颜色，再与当前屏幕颜色直接进行混合。
+Eric的实现可归为第二种，在后处理阶段采样当前帧颜色并应用。这一阶段可以根据前面的Hit Result计算SSR颜色，再与当前屏幕颜色直接进行混合。
 
 而其缺点是无法在后处理阶段进行完整的环境BRDF计算，只能和屏幕颜色线性混合，与其他的反射方式如Reflection Cube，Raytracing Reflection，Planar Reflection无法很好兼容, 好处是前向延迟渲染路径都能用。
 
-而Unreal延迟渲染中的实现是在Lighting后采样上一帧的颜色并计算上述的步骤。
+第三种是Unity HDRP和Unreal在延迟渲染中的实现，因为此时当前帧颜色还未计算出，需要Reproject上一帧的颜色。
 
 其中应用反射的相关逻辑可参考`ReflectionEnvironmentPixelShader.usf`中的处理，下面是简化版：
 
@@ -232,10 +235,23 @@ Color.rgb += PreExposure * GatherRadiance(
 Color.rgb *= EnvBRDF(GBuffer.SpecularColor, GBuffer.Roughness, NoV);
 ```
 
-HDRP中的SSR也是一样，可参考`LightLoop.hlsl EvaluateBSDF_ScreenSpaceReflection`。
+HDRP中的SSR也是一样，可参考`LightLoop.hlsl EvaluateBSDF_ScreenSpaceReflection`。但这个模式很明显只适用于拆分了Lighting步骤的延迟管线，Forward管线没法统一计算环境光照。
 
-如果要在Forward里和UE一样正确计算环境BRDF，就也需要使用上一帧的颜色，并且在ForwardPass中采样和计算。
+而第四种方式就是为了解决Forward渲染路径时的这一问题，这块非常依赖Unity URP渲染管线的能力，下面进行解释：
 
+1. 因为SSR要在ForwardPass中应用，Tracing需要在这之前，那么Normal和ForwardGBuffer需要在Opaque前绘制。而Unity恰好给了我们`DepthNormalPass`。
+2. 因为要Reproject上一帧颜色，我们可以借用TAAPass中的Full Scale历史帧。
+3. 因为要做Reprojection，我们需要MotionVector，在URP新版本中可以选择在AfterOpaque中绘制，但是我们需要更早的时机即Prepass之后。深度就需要使用离屏的`_CameraDepthTexture`。
+
+这块改造较为复杂，详细代码就不提供了，使用方法四的效果如下：
+
+TODO
+
+## TAA适配
+
+HDRP的SSR还有一个TAA流程，但这块要抄HDRP的实现在没有RenderGraph的情况下会比较复杂，所以笔者这里就不阐释了。URP 14里要实现的话和抄一遍内置的TAA差不多，只是把累加的目标换一下。
+
+另一种是不使用SSR的TAA但开启相机全屏TAA的情况，需要修改下算法中的参数。如将 `UNITY_MATRIX_VP` 替换为 `_NonJitteredViewProjMatrix`， 否则相机拉远反射面会有明显抖动。
 
 ## 引用
 
