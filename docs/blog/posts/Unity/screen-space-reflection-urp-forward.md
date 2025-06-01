@@ -6,7 +6,7 @@ categories:
   - Unity
 ---
 
-# UPR Forward渲染路径下的Screen Space Reflection工程实践
+# UPR Forward渲染路径下的Screen Space Reflection实践
 
 <!-- more -->
 
@@ -56,7 +56,7 @@ public override void Execute(ScriptableRenderContext context, ref RenderingData 
 
 这里比较hack的地方是使用`overrideShader`来fetch当前材质中和`overrideShader`属性名称相同的值。
 
-但工程上实践后，笔者认为这不是一个好的方式，它对于标准化的`Lit.shader`而言是有效的，但对于更多自定义的材质就不见得那么有效了。
+但工程上实践后，笔者认为这不是一个好的方式，它对于标准化的`Lit.shader`而言是有效的，但对于自定义的材质就不见得那么有用了。
 因此在每个需要使用SSR的shader中手动增加一个`ForwardGBufferPass`才是更合理的方式。例如下面直接在`Lit.shader`中添加一个`ForwardGBufferPass`。
 
 ```hlsl
@@ -184,7 +184,7 @@ float SampleDepthPyramid(float2 uv, int mipLevel)
 
 ## 优化后效果
 
-使用了HDRP的实现后在Unity2022 Forward渲染路径下的效果，因为是直接后处理混合上去的，AO啥的都没有了，这块我们下一步进行优化。
+使用了HDRP的实现后在Unity2022 Forward渲染路径下的效果，因为是直接后处理混合上去的，没有进行光照计算，效果实际上不是很真实，这块我们在下一步进行优化。
 ![SSR](../../../assets/images/2025-05-13/ssr.png)
 
 ## 渲染流程
@@ -240,18 +240,65 @@ HDRP中的SSR也是一样，可参考`LightLoop.hlsl EvaluateBSDF_ScreenSpaceRef
 而第四种方式就是为了解决Forward渲染路径时的这一问题，这块非常依赖Unity URP渲染管线的能力，下面进行解释：
 
 1. 因为SSR要在ForwardPass中应用，Tracing需要在这之前，那么Normal和ForwardGBuffer需要在Opaque前绘制。而Unity恰好给了我们`DepthNormalPass`。
-2. 因为要Reproject上一帧颜色，我们可以借用TAAPass中的Full Scale历史帧。
+2. 因为要Reproject上一帧颜色，我们可以借用TAAPass中的历史帧。没开TAA的话需要在BeforeRenderingPostProcess时Copy一下Color，自己维护。
 3. 因为要做Reprojection，我们需要MotionVector，在URP新版本中可以选择在AfterOpaque中绘制，但是我们需要更早的时机即Prepass之后。深度就需要使用离屏的`_CameraDepthTexture`。
 
-这块改造较为复杂，详细代码就不提供了，使用方法四的效果如下：
+这块改造较为复杂，详细代码就不提供了，一通改造后，Debugger下的渲染流程如下：
 
-TODO
+![Render Pipeline](../../../assets/images/2025-05-13/ssr_render_pipeline.png)
+
+应用部分的修改只需要在`GlobalIllumination`函数中采样SSR贴图后叠加到Indirect Specular即可。
+
+```c++
+half3 indirectDiffuse = bakedGI;
+half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfData.perceptualRoughness,
+        1.0h, normalizedScreenSpaceUV);
+    
+#if _SCREEN_SPACE_REFLECTION
+    half4 reflection = SampleScreenSpaceReflection(normalizedScreenSpaceUV);
+    indirectSpecular += reflection.rgb; // accumulate since color is already premultiplied by opacity for SSR
+#endif
+
+/* Then calculate env brdf */
+```
+
+计算了正确的环境BRDF后效果如下：
+
+![SSR Correct](../../../assets/images/2025-05-13/ssr_final_result.png)
 
 ## TAA适配
 
-HDRP的SSR还有一个TAA流程，但这块要抄HDRP的实现在没有RenderGraph的情况下会比较复杂，所以笔者这里就不阐释了。URP 14里要实现的话和抄一遍内置的TAA差不多，只是把累加的目标换一下。
+HDRP的SSR最后还有一个Temporal Denoise流程，但这块要抄HDRP的实现在没有RenderGraph的情况下会比较复杂，所以笔者这里就不阐释了。URP14里要手工实现的话应该和抄一遍内置的TAA差不多，只是把累加的目标换一下。
 
-另一种是不使用SSR的TAA但开启相机全屏TAA的情况，需要修改下算法中的参数。如将 `UNITY_MATRIX_VP` 替换为 `_NonJitteredViewProjMatrix`， 否则相机拉远反射面会有明显抖动。
+如果不使用SSR的TAA但开启相机全屏TAA的情况，需要修改下算法中的参数。如将 `UNITY_MATRIX_VP` 替换为当前帧计算出的`_NonJitteredViewProjMatrix`， 否则相机拉远反射面会有明显抖动，计算方式如下。
+
+```c#
+public static Matrix4x4 CalculateNonJitterViewProjMatrix(ref CameraData cameraData, UniversalAdditionalCameraData additionalCameraData)
+{
+    // See MotionVectorRenderPass.cs
+    // Get data
+    MotionVectorsPersistentData motionData = null;
+    if (additionalCameraData)
+        motionData = additionalCameraData.motionVectorsPersistentData;
+
+    // Always keep _NonJitteredViewProjMatrix has value
+    // Use UNITY_MATRIX_VP when taa/motion vector pass off
+    Matrix4x4 nonJitterViewProjMatrix;
+    if (motionData == null)
+    {
+        float4x4 viewMat = cameraData.GetViewMatrix();
+        float4x4 projMat = cameraData.GetGPUProjectionMatrix();
+        nonJitterViewProjMatrix = math.mul(projMat, viewMat);
+    }
+    else
+    {
+        int passID = motionData.GetXRMultiPassId(ref cameraData);
+        nonJitterViewProjMatrix = motionData.viewProjectionStereo[passID];
+    }
+
+    return nonJitterViewProjMatrix;
+}
+```
 
 ## 引用
 
