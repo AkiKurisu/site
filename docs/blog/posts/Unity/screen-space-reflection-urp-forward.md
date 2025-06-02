@@ -12,7 +12,7 @@ categories:
 
 Screen Space Reflection (SSR 屏幕空间反射)是个很有效提高真实感的屏幕空间效果，并且非常常见。
 
-本篇文章是一个工程实践的分享，并不着重于基础概念和算法的解释，如果没了解过SSR，推荐看一下下面的文章和博客。
+本篇文章是一个在Forward渲染路径下的实践分享，并不着重于基础概念和算法的解释，如果没了解过SSR，推荐看一下下面的文章和博客。
 
 概念和算法了解：[图形学基础|屏幕空间反射(SSR)](https://blog.csdn.net/qjh5606/article/details/120102582)
 
@@ -20,9 +20,11 @@ Linear优化的算法详解：[Sugu Lee - Screen Space Reflections : Implementat
 
 Hiz优化的算法详解：[Sugu Lee - Screen Space Reflections : Implementation and optimization – Part 2 : HI-Z Tracing Method](https://sugulee.wordpress.com/2021/01/19/screen-space-reflections-implementation-and-optimization-part-2-hi-z-tracing-method/)
 
-因为 URP 上没有SSR，得自己实现或者第三方插件，这里选取了开源的[JoshuaLim007/Unity-ScreenSpaceReflections-URP](https://github.com/JoshuaLim007/Unity-ScreenSpaceReflections-URP)和[EricHu33/URP_SSR](https://github.com/EricHu33/URP_SSR)。前者提供了三种SSR 的实现算法，并包括了上述两种优化方案，后者额外拓展了部分算法，并支持Forward管线以及RenderGraph API。
+因为 URP 上没有内置SSR，得自己实现或者第三方插件，这里先选取了开源的[JoshuaLim007/Unity-ScreenSpaceReflections-URP](https://github.com/JoshuaLim007/Unity-ScreenSpaceReflections-URP)和[EricHu33/URP_SSR](https://github.com/EricHu33/URP_SSR)进行参考。
 
-## ForwardGBuffer适配
+前者提供了三种SSR 的实现算法，并包括了上述两种优化方案，后者额外拓展了部分算法，并支持Forward管线以及RenderGraph API。
+
+## Forward GBuffer适配
 
 SSR 至少需要采样Depth、Normal、Roughness。在新的URP Forward管线中，Normal可以直接从`DepthNormalPass`生成的`_CameraNormalTexture`中采样，而Roughness则无法获得。
 
@@ -241,7 +243,7 @@ HDRP中的SSR也是一样，可参考`LightLoop.hlsl EvaluateBSDF_ScreenSpaceRef
 
 1. 因为SSR要在ForwardPass中应用，Tracing需要在这之前，那么Normal和ForwardGBuffer需要在Opaque前绘制。而Unity恰好给了我们`DepthNormalPass`。
 2. 因为要Reproject上一帧颜色，我们可以借用TAAPass中的历史帧。没开TAA的话需要在BeforeRenderingPostProcess时Copy一下Color，自己维护。
-3. 因为要做Reprojection，我们需要MotionVector，在URP新版本中可以选择在AfterOpaque中绘制，但是我们需要更早的时机即Prepass之后。深度就需要使用离屏的`_CameraDepthTexture`。
+3. 因为要做Reprojection，我们需要MotionVector获取上一帧的屏幕空间位置。URP14默认在BeforeRenderingPostProcess绘制，在URP17中可以选择在AfterOpaque中绘制，但是我们需要更早的时机即AfterPrepass。
 
 这块改造较为复杂，详细代码就不提供了，一通改造后，Debugger下的渲染流程如下：
 
@@ -254,7 +256,7 @@ half3 indirectDiffuse = bakedGI;
 half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfData.perceptualRoughness,
         1.0h, normalizedScreenSpaceUV);
     
-#if _SCREEN_SPACE_REFLECTION
+#if _SCREEN_SPACE_REFLECTION // multi_compile_fragment
     half4 reflection = SampleScreenSpaceReflection(normalizedScreenSpaceUV);
     indirectSpecular += reflection.rgb; // accumulate since color is already premultiplied by opacity for SSR
 #endif
@@ -266,37 +268,18 @@ half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, 
 
 ![SSR Correct](../../../assets/images/2025-05-13/ssr_final_result.png)
 
-## TAA适配
+## 内置TAA适配
 
 HDRP的SSR最后还有一个Temporal Denoise流程，但这块要抄HDRP的实现在没有RenderGraph的情况下会比较复杂，所以笔者这里就不阐释了。URP14里要手工实现的话应该和抄一遍内置的TAA差不多，只是把累加的目标换一下。
 
-如果不使用SSR的TAA但开启相机全屏TAA的情况，需要修改下算法中的参数。如将 `UNITY_MATRIX_VP` 替换为当前帧计算出的`_NonJitteredViewProjMatrix`， 否则相机拉远反射面会有明显抖动，计算方式如下。
+如果不使用SSR的TAA但开启相机全屏TAA的情况，需要修改下算法中的参数。如将 `UNITY_MATRIX_VP` 替换为当前帧计算出的`_NonJitteredViewProjMatrix`（开了MotionVectorPrepass就不需要手动算了）， 否则相机拉远反射面会有明显抖动，计算方式如下。
 
 ```c#
-public static Matrix4x4 CalculateNonJitterViewProjMatrix(ref CameraData cameraData, UniversalAdditionalCameraData additionalCameraData)
+public static Matrix4x4 CalculateNonJitterViewProjMatrix(ref CameraData cameraData)
 {
-    // See MotionVectorRenderPass.cs
-    // Get data
-    MotionVectorsPersistentData motionData = null;
-    if (additionalCameraData)
-        motionData = additionalCameraData.motionVectorsPersistentData;
-
-    // Always keep _NonJitteredViewProjMatrix has value
-    // Use UNITY_MATRIX_VP when taa/motion vector pass off
-    Matrix4x4 nonJitterViewProjMatrix;
-    if (motionData == null)
-    {
-        float4x4 viewMat = cameraData.GetViewMatrix();
-        float4x4 projMat = cameraData.GetGPUProjectionMatrix();
-        nonJitterViewProjMatrix = math.mul(projMat, viewMat);
-    }
-    else
-    {
-        int passID = motionData.GetXRMultiPassId(ref cameraData);
-        nonJitterViewProjMatrix = motionData.viewProjectionStereo[passID];
-    }
-
-    return nonJitterViewProjMatrix;
+    float4x4 viewMat = cameraData.GetViewMatrix();
+    float4x4 projMat = cameraData.GetGPUProjectionMatrixNoJitter();
+    return math.mul(projMat, viewMat);
 }
 ```
 
