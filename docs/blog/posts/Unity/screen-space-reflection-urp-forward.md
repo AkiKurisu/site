@@ -264,7 +264,7 @@ half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, 
 /* Then calculate env brdf */
 ```
 
-计算了正确的环境BRDF后效果如下：
+计算了正确的环境BRDF后效果如下，可以看到近处的镜子轮廓明显了，狮子右侧反射面颜色淡很多：
 
 ![SSR Correct](../../../assets/images/2025-05-13/ssr_final_result.png)
 
