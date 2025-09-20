@@ -58,7 +58,7 @@ if (_indexInProbeVolume >= 0)
 }
 
 ```
-注意这里我们还未写入3D纹理的Alpha通道，这部分可供自定义数据使用，例如Probe的Validation。
+注意这里我们还未写入3D纹理的Alpha通道，这部分可供自定义数据使用，例如Probe的Validation（例如区分室内室外），这块笔者暂时还没做，后续需要搭配编辑器可视化标记一同实现。
 
 ## 并行规约
 
@@ -66,9 +66,10 @@ if (_indexInProbeVolume >= 0)
 
 ![Parallel Reduction](../../../assets/images/2025-09-16/parallel_reduction.png)
 
-英伟达官方提供了最佳实践[Optimizing Parallel Reduction in CUDA](https://developer.download.nvidia.cn/assets/cuda/files/reduction.pdf)
+原理不难，英伟达也提供了最佳实践[Optimizing Parallel Reduction in CUDA](https://developer.download.nvidia.cn/assets/cuda/files/reduction.pdf)。
 
-实现起来也非常简单，我们有512个Thread，刚好是2次幂，因此可以使用PPT中的方法3。
+在CS中实现起来也非常简单，我们有512个Thread，刚好是2次幂，因此可以直接使用PPT中的方法3。
+
 ![Reduction Approach 3](../../../assets/images/2025-09-16/reduction_version3.png)
 
 ```cpp
@@ -84,7 +85,7 @@ for (uint stride = 256; stride > 0; stride >>= 1)
 }
 ```
 
-由于利用了多线程能力，带宽换时间，性能大概提升2倍，其他方法可以更有效利用带宽，但代码实在有些繁琐，用第三种基本足够了。
+由于利用了多线程能力，带宽换时间，性能大概提升2倍，还有两个进阶版本可以更有效利用带宽，但代码实在有些繁琐，用第三种基本足够了。
 
 ![Reduction Benchmark](../../../assets/images/2025-09-16/reduction_benchmark.png)
 
@@ -92,7 +93,7 @@ for (uint stride = 256; stride > 0; stride >>= 1)
 
 由于现有方法是需要每帧遍历所有Probe进行Relight，这导致场景越大或Probe密度越大，Relight成本越高。为了性能可控，我们可以利用Diffuse GI低频的特点，将Relight的步骤分摊到多帧。
 
-```cpp
+```c#
 void DoRelight(CommandBuffer cmd, PRTProbeVolume volume)
 {
     volume.SwapCoefficientVoxels();
@@ -183,4 +184,4 @@ void CSMain (uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 
 ![Seperate Relight](../../../assets/images/2025-09-16/seperate_relight.png)
 
-这也是育碧这套方案在GPU侧的优化目的，其他细节的地方是一些可以离线合并的数据就没必要在运行时计算，例如Surfel对于Probe的权重依赖于法线计算，而合并为Brick后可以离线算出平均法线，点乘获取权重保存在Probe中。同理SkyVisibility也可以离线求平均保存。
+这也是育碧这套方案在GPU侧的优化目的，其他细节的地方是一些可以离线合并的数据就没必要在运行时计算，例如Surfel对于Probe的权重依赖于法线计算，而合并为Brick后可以离线算出平均法线，点乘获取权重保存在Probe中。
