@@ -142,6 +142,62 @@ public void AdvanceRenderFrame()
 
 育碧全境封锁给予了一个方案，即根据Grid大小和Surfel的法线的主方向来聚集为Brick。同一个Brick中的Surfel数据就可以提取一下特征（比如对于坐标相同、法线方向相近的Surfel进行合并）。
 
+下面是数据结构：
+
+```C#
+/// <summary>
+/// Represents the indices of a Surfel
+/// </summary>
+[Serializable]
+public struct SurfelIndices
+{
+    public int start;
+
+    public int end;
+}
+
+/// <summary>
+/// Factor structure: contains Brick index and the contribution weight of that Brick to the Probe
+/// </summary>
+[Serializable]
+public struct BrickFactor
+{
+    public int brickIndex;    // Index of the Brick in the global array
+
+    public float weight;      // Contribution weight of this Brick to the Probe [0,1]
+}
+
+/// <summary>
+/// Factor range: each Probe stores the range of Factors it uses
+/// </summary>
+[Serializable]
+public struct FactorIndices
+{
+    public int start;         // Start index in the Factor array
+
+    public int end;           // End index in the Factor array
+}
+
+/// <summary>
+/// Represents a 4x4x4 brick containing merged Surfels
+/// </summary>
+public class SurfelBrick
+{
+    public const float BrickSize = 4.0f; // 4x4x4 meters
+
+    public readonly List<int> SurfelIndices = new(); // Store indices instead of actual surfels
+
+    public readonly HashSet<PRTProbe> ReferencedProbes = new(); // Store probes that reference this brick
+
+    public int Index { get; } // Global index in the brick array
+
+    public SurfelBrick(int index)
+    {
+        Index = index;
+    }
+}
+```
+
 其次因为Surfel被合并为Brick，Probe不再直接引用其烘焙阶段命中的Surfel，这就需要修改CPU侧的整个数据结构，即将Sample的Surfel数据和Relight的Surfel数据分离。
 
 ![Brick Grid](../../../assets/images/2025-09-16/brick_grid.png)
