@@ -1,6 +1,5 @@
 ---
 date: 2025-09-16T22:54:05
-draft: true
 authors:
   - AkiKurisu
 categories:
