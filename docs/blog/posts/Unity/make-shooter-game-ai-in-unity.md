@@ -6,7 +6,7 @@ categories:
   - Unity
 ---
 
-# Unity射击游戏AI实现: 初级篇
+# Unity射击游戏极简AI实现
 
 <!-- more -->
 
@@ -348,10 +348,20 @@ public class LookAtTarget : TPSAction
 
 实际上要完成图中的AI，你还需要`射线检测`来查看面前是否有敌人。
 
-!!! Question
-    对于射击游戏AI，如何进行射线检测才比较合理呢？
+## AI视野
 
+AI怎么发现它的敌人呢？玩家通过相机提供的视野来发现对手，那么AI也可以拥有一个虚拟的视野，以下简称`FOV`。
 
-## 改良AI
+![Fov](../../../assets/images/2024-07-27/fov.png)
 
-上面的问题将在下一章进行解答，我将继续改良这个AI，让它变得更加智能和自然。
+> 以上就是由angle和radius控制的一个简单扇形FOV。
+
+!!! Quesion
+    从上图可以看到如果目标在扇形外，即使离得很近AI也看不到，怎么样优化这一点呢？
+
+在GameAIPro3中，Naughty Dog分享了一种方案，就是在近处使用更复杂的多边形来圈定视野范围，在Unity中实现后如下图所示：
+
+![Fov Prime](../../../assets/images/2024-07-27/fov-prime.gif)
+
+!!! Tips
+    因为此步骤是一个粗筛，不需要考虑物体之间的遮挡问题，我们可以完全在2D平面内计算，又因为是个纯数学运算，我们可以用JobSystem进行优化。
