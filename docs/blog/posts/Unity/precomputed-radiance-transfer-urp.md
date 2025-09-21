@@ -7,7 +7,7 @@ categories:
   - Unity
 ---
 
-# Unity URP渲染管线PRTGI实践
+# Unity URP渲染管线PRTGI拓展
 
 <!-- more -->
 
@@ -20,6 +20,15 @@ categories:
 笔者本篇文章也是基于该项目Fork在学习过程中继续完善和扩展。
 
 ![PRTGI](../../../assets/images/2025-09-16/prtgi_diff.png)
+
+## 流程概述
+
+先总结一下AKG4e3大佬项目中的流程，方便后续对比：
+
+1. Probe发射512个射线采样生成Surfel（总计512 * Probe个）
+2. 按Probe顺序存储Surfel
+3. 运行时Probe拿到对应的512个Surfel
+4. Relight所有Probe
 
 ## 3D纹理
 
@@ -157,6 +166,28 @@ public struct SurfelIndices
 }
 
 /// <summary>
+/// Represents a 4x4x4 brick containing merged Surfels
+/// </summary>
+public class SurfelBrick
+{
+    public const float BrickSize = 4.0f; // 4x4x4 meters
+
+    public readonly List<int> SurfelIndices = new(); // Store indices instead of actual surfels
+
+    public readonly HashSet<PRTProbe> ReferencedProbes = new(); // Store probes that reference this brick
+
+    public int Index { get; } // Global index in the brick array
+}
+```
+
+SurfelBrick即为烘焙时的Brick存储结构，由于Surfel不再唯一对应一个Probe，我们还需要存储引用关系，直到存储数据时再扁平化为索引。
+
+
+其次因为Surfel被合并为Brick，Probe不再直接引用其烘焙阶段命中的Surfel，我们需要额外的数据结构将Sample的Surfel数据和Relight的Surfel数据分离。参考育碧，下面是一个示例：
+
+```C#
+
+/// <summary>
 /// Factor structure: contains Brick index and the contribution weight of that Brick to the Probe
 /// </summary>
 [Serializable]
@@ -177,67 +208,35 @@ public struct FactorIndices
 
     public int end;           // End index in the Factor array
 }
-
-/// <summary>
-/// Represents a 4x4x4 brick containing merged Surfels
-/// </summary>
-public class SurfelBrick
-{
-    public const float BrickSize = 4.0f; // 4x4x4 meters
-
-    public readonly List<int> SurfelIndices = new(); // Store indices instead of actual surfels
-
-    public readonly HashSet<PRTProbe> ReferencedProbes = new(); // Store probes that reference this brick
-
-    public int Index { get; } // Global index in the brick array
-
-    public SurfelBrick(int index)
-    {
-        Index = index;
-    }
-}
 ```
 
-其次因为Surfel被合并为Brick，Probe不再直接引用其烘焙阶段命中的Surfel，这就需要修改CPU侧的整个数据结构，即将Sample的Surfel数据和Relight的Surfel数据分离。
+这里Factor对应了一个Brick对于一个Probe的贡献权重（由Brick中所有Surfel的平均法线计算），FactorIndices则对应一个Probe的Factor范围，由此可以保持运行时索引上的连续。
+
+结合上面的数据结构，下面是从烘焙到使用的新流程：
+
+1. Probe发射512个射线采样生成Surfel
+2. Surfel合并聚集到Brick
+3. Brick平均法线计算Probe贡献系数，存到Factor中
+4. 存储Factor、Brick、以及合并后的全部Surfel
+5. 运行时Volume拿到全部Surfel、Brick、Factor数据，提交GPU
+6. Relight所有Brick
+7. Relight所有Factor
+
+为了验证数据正确，这里优先编写一下Brick的Gizmos视图，方便在编辑器看到各个Brick对选中Probe的贡献值以及Brick中各个Surfel方向是否朝向一致。
 
 ![Brick Grid](../../../assets/images/2025-09-16/brick_grid.png)
 
-## Relight分离
+最后我们对比下性能，因为Surfel数据大量进行了合并，Relight Brick开销非常小，而Probe在Relight时采样的Brick数量也小于原先的512个，因此开销也有所下降。
 
-前面我们参考了全境封锁的做法在烘焙阶段将Surfel聚集为Brick，那么运行时Relight逻辑也要进行修改。
+注意这里是使用了Multi Frame Relight来控制每帧更新的Probe数量（图中示例为15个Probe）。
 
-为了方便理解以及理清修改代码的目的，我们不妨先看看在不修改ComputeShader的情况下我们会遇到什么问题。
+![Benchmark](../../../assets/images/2025-09-16/optimize_benchmark.png)
 
-问题1是由于Surfel被聚集为Brick后，每个Probe实际引用的Surfel数量大量增加，这个情况下原先基于射线数量的512 Thread就不够用了。
 
-一种简单的方式是增加Thread，然后传入实际长度来避免超出范围。
+## 总结
 
-```C#
-#define ThreadCount 1024
-[numthreads(ThreadCount, 1, 1)]
-void CSMain (uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
-{
-    if (groupIndex < _surfelNum)
-    {
-        // EvaluateSurfelRadiance
-    }
+本篇文章着重于现有开源PRTGI方案的优化和拓展，即使完成上述后，仍然有大量待完善的内容。
 
-    // Parallel reduction
-    for (uint stride = ThreadCount / 2; stride > 0; stride >>= 1)
-    {
-        if (groupIndex < stride && groupIndex + stride < _surfelNum)
-        {
-            groupCoefficients[groupIndex] += groupCoefficients[groupIndex + stride];
-        }
-        GroupMemoryBarrierWithGroupSync();
-    }
-}
-```
+前三个部分的实现在我的Fork版本[AkiKurisu/UnityPRTGI](https://github.com/AkiKurisu/UnityPRTGI)中已经基本完成（可能存在构建、Gizmos的问题，后续也不维护了）。
 
-问题2是由于多个Probe会引用同一个Brick，那么按现在的逻辑Surfel Relight就会大量重复。
-
-要完整解决问题1和2就需要将Brick的Relight和Probe的Relight分离，这样可以大大减少计算。
-
-![Seperate Relight](../../../assets/images/2025-09-16/seperate_relight.png)
-
-这也是育碧这套方案在GPU侧的优化目的，其他细节的地方是一些可以离线合并的数据就没必要在运行时计算，例如Surfel对于Probe的权重依赖于法线计算，而合并为Brick后可以离线算出平均法线，点乘获取权重保存在Probe中。
+第四个部分的实现会之后和其他渲染功能一起开源，敬请期待。
