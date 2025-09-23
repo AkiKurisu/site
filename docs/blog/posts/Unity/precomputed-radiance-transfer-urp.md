@@ -236,7 +236,7 @@ if(_indexInProbeVolume >= 0)
 }
 ```
 
-我将其修改为probeSizeX, probeSizeZ, probeSizeY * 9大小，格式为RGB111110Float的3D纹理。虽然这样还是会有一定的CacheMiss，但相比使用ComputeBuffer来存储球谐系数，性能提升明显，并且可以方便在FrameDebugger中查看。
+我将其修改为probeSizeX, probeSizeZ, probeSizeY * 9大小，格式为RGB111110Float的3D纹理。虽然这样还是会有一定的CacheMiss，但相比使用ComputeBuffer来存储球谐系数性能更好，并且可以方便在FrameDebugger中查看。
 
 ```cpp
 // Layout: [probeSizeX, probeSizeZ, probeSizeY * 9]
@@ -250,7 +250,6 @@ if (_indexInProbeVolume >= 0)
 }
 
 ```
-注意这里我们还未写入3D纹理的Alpha通道，这部分可供自定义数据使用，例如Probe的Validation（例如区分室内室外），这块笔者暂时还没做，后续需要搭配编辑器可视化标记一同实现。
 
 ## 并行规约
 
