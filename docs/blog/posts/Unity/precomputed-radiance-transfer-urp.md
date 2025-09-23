@@ -24,10 +24,192 @@ categories:
 
 先总结一下AKG4e3大佬项目中的流程，方便后续对比：
 
-1. Probe发射512个射线采样生成Surfel（总计512 * Probe个）
+1. 离线烘焙生成Surfel（总计512 * Probe）
 2. 按Probe顺序存储Surfel
 3. 运行时Probe拿到对应的512个Surfel
 4. Relight所有Probe
+
+## 烘焙提速
+
+原作者使用Camera.RenderToCubemap来抓取Cubemap，这个函数在GPU上的开销实际不大，手动渲染每一个面的成本并没有减少，但可以考虑改成使用另一个拓展方法，来在构建RenderList的时候忽略非静态物体：
+
+```C#
+public static bool RenderToCubemap(
+    this Camera camera,
+    Texture target,
+    int faceMask,
+    StaticEditorFlags culledFlags);
+```
+
+通过不同场景的性能测试，烘焙这里更拖延速度的是CPU侧设置Material Shader的开销，由于需要分别设置Shader来采样Position、Albedo、Normal数据，实际开销 ≈ $3 \cdot N_\text{materials} \cdot N_\text{probes}$ 次 Shader 设置，时间复杂度为$O(N_\text{materials} \cdot N_\text{probes})$。
+
+所以优化方式就是使用一个Shader，烘焙时只需要设置一次，每个Probe烘焙时通过切换Keyword来抓取所需数据。
+
+```c++
+#pragma multi_compile _ _GBUFFER_WORLDPOS _GBUFFER_NORMAL
+
+float4 frag (v2f i) : SV_Target
+{
+    #if defined(_GBUFFER_WORLDPOS)
+        // Output world position
+        return float4(i.worldPos, 1.0);
+    #elif defined(_GBUFFER_NORMAL)
+        // Output world space normal
+        return float4(i.normal, 1.0);
+    #else
+        // Default output albedo
+        half4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * _Color;
+        return albedo;
+    #endif
+}
+```
+
+```C#
+private static void SetGlobalGBufferCaptureMode(GBufferCaptureMode captureMode)
+{
+    // Enable the specific keyword based on capture mode
+    switch (captureMode)
+    {
+        case GBufferCaptureMode.WorldPosition:
+            Shader.EnableKeyword("_GBUFFER_WORLDPOS");
+            Shader.DisableKeyword("_GBUFFER_NORMAL");
+            break;
+        case GBufferCaptureMode.Normal:
+            Shader.DisableKeyword("_GBUFFER_WORLDPOS");
+            Shader.EnableKeyword("_GBUFFER_NORMAL");
+            break;
+        case GBufferCaptureMode.Albedo:
+            Shader.DisableKeyword("_GBUFFER_WORLDPOS");
+            Shader.DisableKeyword("_GBUFFER_NORMAL");
+            break;
+    }
+}
+
+// 对于每个Probe执行下面的代码
+SetGlobalGBufferCaptureMode(GBufferCaptureMode.WorldPosition);
+camera.RenderToCubemap(_worldPosRT, -1, StaticEditorFlags.ContributeGI);
+SetGlobalGBufferCaptureMode(GBufferCaptureMode.Normal);
+camera.RenderToCubemap(_normalRT, -1, StaticEditorFlags.ContributeGI);
+SetGlobalGBufferCaptureMode(GBufferCaptureMode.Albedo);
+camera.RenderToCubemap(_albedoRT, -1, StaticEditorFlags.ContributeGI);
+```
+
+如此一来时间复杂度为$O(1)$，大大提升了复杂场景下的烘焙速度。
+
+## 球谐优化
+
+可能是因为Unity 2023和Unity 6在中国封禁，Unity新推出的APV（Adaptive Probe Volume）系统在国内的讨论非常少。然而，作为Unity官方的全局光照解决方案，APV有大量值得学习的优化技巧。
+
+PRT（Precomputed Radiance Transfer）和APV实际上师出同门，两者的核心差异在于：
+- **APV**: 每个Probe离线存储球谐系数，适合静态场景
+- **PRT**: 存储Radiance数据，支持动态光照（如TOD - Time of Day系统）
+
+尽管应用场景不同，APV作为Unity官方实现，其优化策略具有重要的参考价值。
+
+
+原项目`SH.hlsl`中的球谐函数实现使用大量条件判断：
+
+```c++
+// 老版本 - 大量分支判断
+float SH(in int l, in int m, in float3 s) 
+{
+    if (l == 0) return kSHBasis0;
+    if (l == 1 && m == -1) return kSHBasis1 * y;
+    if (l == 1 && m == 0) return kSHBasis1 * z;
+    // ... 更多条件判断
+    return 0.0;
+}
+
+// 在循环中重复调用
+for (int shIndex = 0; shIndex < 9; shIndex++)
+{
+    contribution = SHProject(shIndex, dir) * totalRadiance * 4.0 * PI;
+    // 每次调用都要执行完整的条件判断逻辑
+}
+```
+这种GPU上的条件分支会导致warp divergence，且影响性能。
+
+而下面是参考Unity的`SphericalHarmonics.hlsl`的实现方式，使用向量化方式来优化。
+
+```C++
+// 新版本 - 向量化计算
+void EvaluateSH9(in float3 dir, out float sh[9])
+{
+    float x = dir.x;
+    float y = dir.z; // 坐标变换保持一致性
+    float z = dir.y;
+    
+    // L0 (常数项)
+    sh[0] = kSHBasis0;
+    
+    // L1 (线性项) - 并行计算
+    sh[1] = kSHBasis1 * y;    // Y_1_-1
+    sh[2] = kSHBasis1 * z;    // Y_1_0
+    sh[3] = kSHBasis1 * x;    // Y_1_1
+    
+    // L2 (二次项) - 并行计算
+    sh[4] = kSHBasis2 * x * y;                          // Y_2_-2
+    sh[5] = kSHBasis2 * y * z;                          // Y_2_-1
+    sh[6] = kSHBasis3 * (2.0 * z * z - x * x - y * y);  // Y_2_0
+    sh[7] = kSHBasis2 * x * z;                          // Y_2_1
+    sh[8] = kSHBasis4 * (x * x - y * y);                // Y_2_2
+}
+
+// 优化后的使用方式
+float shCoeffs[9];
+EvaluateSH9(dir, shCoeffs); // 一次计算所有系数
+
+for (int shIndex = 0; shIndex < 9; shIndex++)
+{
+    contribution = shCoeffs[shIndex] * totalRadiance * 4.0 * PI;
+    // 直接数组访问，无分支判断
+}
+```
+
+这种方式可以连续访问，性能更好。
+
+接着我们需要相应修改下`ProbeRelight.compute`中的Irradiance计算，来支持向量化的优化.
+
+**优化前**：
+```hlsl
+for (int shIndex = 0; shIndex < 9; shIndex++)
+{
+    // 每次循环都重新计算SH基函数
+    contribution = SHProject(shIndex, dir) * totalRadiance * 4.0 * PI;
+}
+```
+
+**优化后**：
+```hlsl
+// 一次性计算所有SH系数
+float shCoeffs[9];
+EvaluateSH9(dir, shCoeffs);
+
+for (int shIndex = 0; shIndex < 9; shIndex++)
+{
+    // 直接使用预计算的系数
+    contribution = shCoeffs[shIndex] * totalRadiance * 4.0 * PI;
+}
+```
+
+
+除了向量化外，APV系统中一个巧妙的优化是在球谐系数上预除PI，减少Radiance转为Irradiance时的ALU开销：
+
+```C++
+// Clamped cosine convolution coefs (pre-divided by PI)
+// See https://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/
+#define kClampedCosine0 1.0f
+#define kClampedCosine1 2.0f / 3.0f
+#define kClampedCosine2 1.0f / 4.0f
+
+static const float kClampedCosineCoefs[] = { 
+    kClampedCosine0, kClampedCosine1, kClampedCosine1, kClampedCosine1, 
+    kClampedCosine2, kClampedCosine2, kClampedCosine2, kClampedCosine2, kClampedCosine2 
+};
+```
+
+这个优化基于Sébastien Lagarde的经典文章：[《Pi or not to Pi in game lighting equation》](https://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/)。这也是实时渲染中一个比较经典的问题，例如在URP中的Lambert BRDF故意没有除PI，目的是简化灯光流程，让灯光颜色调整时所见即所得。
+
 
 ## 3D纹理
 
@@ -52,7 +234,7 @@ if(_indexInProbeVolume >= 0)
 }
 ```
 
-我将其修改为probeSizeX, probeSizeZ, probeSizeY * 9大小，格式为RGBA32的3D纹理，虽然这样还是会有一定的CacheMiss，但相比使用ComputeBuffer来存储球谐系数，性能提升明显，并且可以方便在FrameDebugger中查看。
+我将其修改为probeSizeX, probeSizeZ, probeSizeY * 9大小，格式为RGB111110Float的3D纹理。虽然这样还是会有一定的CacheMiss，但相比使用ComputeBuffer来存储球谐系数，性能提升明显，并且可以方便在FrameDebugger中查看。
 
 ```cpp
 // Layout: [probeSizeX, probeSizeZ, probeSizeY * 9]
@@ -142,13 +324,13 @@ public void AdvanceRenderFrame()
 
 由于我们不再使用原子操作来修改ComputeBuffer，我们只要在CPU侧跳过ClearCoefficientVoxel这一步骤就相当于实现了Load and Dont Care的效果。
 
-## Surfel合并
+## Surfel合并Brick
 
 我们回过头看下现在的数据存储，对于每个Probe我们都存放了其512个Surfel数据，如果两个Probe挨着很近，那很大概率Surfel的数据是比较重复的，对于离得很近、方向基本一致的Surfel，我们实际可以清理一部分冗余数据。
 
 ![Brick](../../../assets/images/2025-09-16/surfel_brick.png)
 
-育碧全境封锁给予了一个方案，即根据Grid大小和Surfel的法线的主方向来聚集为Brick。同一个Brick中的Surfel数据就可以提取一下特征（比如对于坐标相同、法线方向相近的Surfel进行合并）。
+育碧全境封锁给予了一个方案，即根据Grid大小和Surfel的法线的主方向来聚集为<b>Brick</b>。同一个Brick中的Surfel数据就可以提取一下特征（比如对于坐标相同、法线方向相近的Surfel进行合并）。
 
 下面是数据结构：
 
@@ -209,7 +391,7 @@ public struct FactorIndices
 }
 ```
 
-这里Factor对应了一个Brick对于一个Probe的贡献权重（由Brick中所有Surfel的平均法线计算），FactorIndices则对应一个Probe的Factor范围，由此可以保持运行时索引上的连续。
+这里Factor对应了一个Brick对于一个Probe的贡献权重（由Brick中所有Surfel的平均法线计算），Factor Indices则对应一个Probe的Factor范围，由此可以保持运行时索引上的连续。
 
 结合上面的数据结构，下面是从烘焙到使用的新流程：
 
@@ -236,6 +418,6 @@ public struct FactorIndices
 
 本篇文章着重于现有开源PRTGI方案的优化和拓展，即使完成上述后，仍然有大量待完善的内容。
 
-前三个部分的实现在我的Fork版本[AkiKurisu/UnityPRTGI](https://github.com/AkiKurisu/UnityPRTGI)中已经基本完成（可能存在构建、Gizmos的问题，后续也不维护了）。
+其中一些部分的实现在我的Fork版本[AkiKurisu/UnityPRTGI](https://github.com/AkiKurisu/UnityPRTGI)中已经基本完成，但由于我本身是在Forward渲染路径下开发，需要直接修改Shader代码，就集成到别的项目了，Fork版本不再维护。
 
-第四个部分的实现会之后和其他渲染功能一起开源，敬请期待。
+其他实现会之后和别的在URP下实现的渲染Feature一起开源，敬请期待。
