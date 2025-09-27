@@ -325,6 +325,37 @@ public void AdvanceRenderFrame()
 
 由于我们不再使用原子操作来修改ComputeBuffer，我们只要在CPU侧跳过ClearCoefficientVoxel这一步骤就相当于实现了Load and Dont Care的效果。
 
+## Forward+多光源适配
+
+理论上只要添加`_FOWARD_PLUS`宏后就可以使用了，但从URP 14后会遇到一个离谱的编译问题。
+
+```
+Can't find included file `Packages/com.unity.render-pipelines.ps5/ShaderLibrary/API/FoveatedRendering_PSSL.hlsl`
+```
+
+CS的编译似乎无视了`SHADER_API_PS5`宏，导致找不到平台文件报错，问题是散修开发者也没PS5平台的引擎拓展。
+
+国内有开发者问了团结但只得到了AI答复[URP14.0.7及之后的版本下计算着色器库文件引用问题](https://developer.unity.cn/ask/question/66dfb568edbc2a001cb709d3)。
+
+因此在不修改源码的情况下，最佳的解决方案就是本地创建一个空的`com.unity.render-pipelines.ps5`库，里面写一个空的`FoveatedRendering_PSSL.hlsl`。
+
+最后在LightLoop前加上下面的代码，初始化Cluster需要拿到surfel的屏幕坐标和世界坐标：
+
+```cpp
+#if _FORWARD_PLUS
+    float2 uv = ComputeNormalizedDeviceCoordinates(surfel.position, UNITY_MATRIX_VP);
+    InputData inputData = (InputData)0;
+    inputData.normalizedScreenSpaceUV = uv;
+    inputData.positionWS = surfel.position;
+#endif
+    uint pixelLightCount = GetAdditionalLightsCount();
+    LIGHT_LOOP_BEGIN(pixelLightCount) // 这里会创建Cluster
+    // Light Loop...
+    LIGHT_LOOP_END
+```
+
+![Local Light](../../../assets/images/2025-09-16/local_light.png)
+
 ## Surfel合并Brick
 
 我们回过头看下现在的数据存储，对于每个Probe我们都存放了其512个Surfel数据，如果两个Probe挨着很近，那很大概率Surfel的数据是比较重复的，对于离得很近、方向基本一致的Surfel，我们实际可以清理一部分冗余数据。
