@@ -687,11 +687,218 @@ uint3 ProbeIndexToTexture3DCoord(uint probeIndex, uint shIndex, float4 voxelSize
 
 ![滚动更新](../../../assets/images/2025-09-16/scrolling.gif)
 
+## Fallback Skylight
+
+本来写到上面就准备结束了，正好遇到国庆，就想着再多完善几个地方。前文里我忽略了一个点即IrradianceVolume的采样需要进行三线性插值，但如果片元位置不在Volume中呢？这时就需要fallback回天光。
+
+```cpp
+#if defined(DYNAMICLIGHTMAP_ON)
+    inputData.bakedGI = SAMPLE_GI(IN.lightmapUVOrVertexSH.xy, IN.dynamicLightmapUV.xy, SH, inputData.normalWS);
+#else
+    inputData.bakedGI = SAMPLE_GI(IN.lightmapUVOrVertexSH.xy, SH, inputData.normalWS);
+#endif
+
+inputData.bakedGI = SAMPLE_PROBE_VOLUME(inputData.positionWS, inputData.normalWS, inputData.bakedGI);
+
+#if _PRT_GLOBAL_ILLUMINATION_ON
+    #define SAMPLE_PROBE_VOLUME(worldPos, normal, bakedGI) SampleProbeVolume(worldPos, normal, bakedGI)
+#else
+    #define SAMPLE_PROBE_VOLUME(worldPos, normal, bakedGI) bakedGI
+#endif
+
+float3 EvaluateProbeVolumeSH(
+    in float3 worldPos, 
+    in float3 normal,
+    in float3 bakedGI,
+    in Texture3D<float3> coefficientVoxel3D,
+    in float coefficientVoxelGridSize,
+    in float4 coefficientVoxelCorner,
+    in float4 coefficientVoxelSize
+)
+{
+    // probe grid index for current fragment
+    int3 probeCoord = GetProbeTexture3DCoordFromPosition(worldPos, coefficientVoxelGridSize, coefficientVoxelCorner);
+    int3 offset[8] = {
+        int3(0, 0, 0), int3(0, 0, 1), int3(0, 1, 0), int3(0, 1, 1), 
+        int3(1, 0, 0), int3(1, 0, 1), int3(1, 1, 0), int3(1, 1, 1), 
+    };
+
+    float3 c[9];
+    float3 Lo[8] = {
+        float3(0, 0, 0),
+        float3(0, 0, 0),
+        float3(0, 0, 0),
+        float3(0, 0, 0),
+        float3(0, 0, 0),
+        float3(0, 0, 0),
+        float3(0, 0, 0),
+        float3(0, 0, 0)
+    };
+
+    // near 8 probes
+    for (int i = 0; i < 8; i++)
+    {
+        int3 idx3 = probeCoord + offset[i];
+        bool isInsideVoxel = IsProbeCoordInsideVoxel(idx3, coefficientVoxelSize);
+        if (!isInsideVoxel)
+        {
+            Lo[i] = bakedGI; // falback to skylight
+            continue;
+        }
+
+        // decode SH9 from 3D texture using bounding box coordinates
+        DecodeSHCoefficientFromVoxel3D(c, coefficientVoxel3D, idx3);
+        Lo[i] = IrradianceSH9(c, normal);
+    }
+
+    // trilinear interpolation
+    float3 minCorner = GetProbePositionFromTexture3DCoord(probeCoord, coefficientVoxelGridSize, coefficientVoxelCorner);
+    float3 rate = saturate((worldPos - minCorner) / coefficientVoxelGridSize);
+    float3 color = TrilinearInterpolationFloat3(Lo, rate);
+    
+    return color;
+}
+```
+
+这种方式的不足是边界也会有比较明显的跳变，大世界中常见做法是使用Clipmap，让Irradiance Volume足够大的同时保持3D纹理大小，然后分不同Level采样，这里笔者没空实现了。
+
+不过在工程实践上，我发现了另一个必须解决的问题：Probe在采样的时候如果在地下，结果肯定有错误，所以我们希望把Probe往上移一些，但这样又会导致Probe之下地面之上边界区域的像素不在Volume中，被fallback到GI，于是就需要下一步的优化。
+
+## Virtual Offset
+
+Unity的APV为每个Probe提供了一个Virtual Offset，用于在采样时偏移Probe的位置（例如解决卡墙里、地面下的Probe），运行时仍使用Uniform Grid来查找。
+
+![Virtual Offset](../../../assets/images/2025-09-16/virtual_offset.png)
+
+如此一来就很方便解决了上文边界区域不在Volume中的问题。
+
+但正如我前文所说，APV可以参考的东西有很多，例如APV提供了一个[Probe Adjustment Volume](https://docs.unity3d.com/6000.0/Documentation/Manual/urp/probevolumes-adjustment-volume-component-reference.html)来偏移一定范围内的Probe。方便开发者or设计师进行细微调整。
+
+为了避免漏光，我们希望Probe可以吸附在墙体周围。APV使用引擎新支持的ray tracing shader来遍历Geometry找到离障碍物最近的点进行吸附，根据吸附点计算Virtual Offset。我们也可以参考其算法编写一个CPU版本的Virtual Offset烘焙器：
+
+```C#
+private Vector3 CalculateRayTracedVirtualOffsetPosition(Vector3 probePosition)
+{
+    const float DISTANCE_THRESHOLD = 5e-5f;
+    const float DOT_THRESHOLD = 1e-2f;
+    const float VALIDITY_THRESHOLD = 0.5f; // 50% backface threshold
+
+    Vector3[] sampleDirections = GetSampleDirections();
+    Vector3 bestDirection = Vector3.zero;
+    float maxDotSurface = -1f;
+    float minDistance = float.MaxValue;
+    int validHits = 0;
+
+    foreach (Vector3 direction in sampleDirections)
+    {
+        Vector3 rayOrigin = probePosition + direction * rayOriginBias;
+        Vector3 rayDirection = direction;
+
+        // Cast ray to find geometry intersection
+        if (Physics.Raycast(rayOrigin, rayDirection, out RaycastHit hit, 10f))
+        {
+            // Skip front faces
+            if (hit.triangleIndex >= 0) // Check if it's a valid hit
+            {
+                // Check if it's a back face by checking normal direction
+                Vector3 hitNormal = hit.normal;
+                float dotSurface = Vector3.Dot(rayDirection, hitNormal);
+
+                // If it's a front face, skip it
+                if (dotSurface > 0)
+                {
+                    validHits++;
+                    continue;
+                }
+
+                float distanceDiff = hit.distance - minDistance;
+
+                // If distance is within threshold
+                if (distanceDiff < DISTANCE_THRESHOLD)
+                {
+                    // If new distance is smaller by at least threshold, or if ray is more colinear with normal
+                    if (distanceDiff < -DISTANCE_THRESHOLD || dotSurface - maxDotSurface > DOT_THRESHOLD)
+                    {
+                        bestDirection = rayDirection;
+                        maxDotSurface = dotSurface;
+                        minDistance = hit.distance;
+                    }
+                }
+            }
+        }
+    }
+
+    // Calculate validity (percentage of backfaces seen)
+    float validity = 1.0f - validHits / (float)(sampleDirections.Length - 1.0f);
+
+    // Disable VO for probes that don't see enough backface
+    if (validity <= VALIDITY_THRESHOLD)
+        return probePosition;
+
+    if (minDistance == float.MaxValue)
+        minDistance = 0f;
+
+    // Calculate final offset position
+    float offsetDistance = minDistance * 1.05f + geometryBias;
+    return probePosition + bestDirection * offsetDistance;
+}
+
+/// <summary>
+/// Get sample directions for ray tracing
+/// </summary>
+/// <returns>Array of normalized direction vectors</returns>
+private static Vector3[] GetSampleDirections()
+{
+    // 3x3x3 - 1, excluding center
+    const float k0 = 0f, k1 = 1f, k2 = 0.70710678118654752440084436210485f, k3 = 0.57735026918962576450914878050196f;
+
+    return new Vector3[]
+    {
+        // Top layer (y = +1)
+        new(-k3, +k3, -k3), // -1  1 -1
+        new( k0, +k2, -k2), //  0  1 -1
+        new(+k3, +k3, -k3), //  1  1 -1
+        new(-k2, +k2,  k0), // -1  1  0
+        new( k0, +k1,  k0), //  0  1  0
+        new(+k2, +k2,  k0), //  1  1  0
+        new(-k3, +k3, +k3), // -1  1  1
+        new( k0, +k2, +k2), //  0  1  1
+        new(+k3, +k3, +k3), //  1  1  1
+
+        // Middle layer (y = 0)
+        new(-k2,  k0, -k2), // -1  0 -1
+        new( k0,  k0, -k1), //  0  0 -1
+        new(+k2,  k0, -k2), //  1  0 -1
+        new(-k1,  k0,  k0), // -1  0  0
+        // k0, k0, k0 - skip center position (which would be a zero-length ray)
+        new(+k1,  k0,  k0), //  1  0  0
+        new(-k2,  k0, +k2), // -1  0  1
+        new( k0,  k0, +k1), //  0  0  1
+        new(+k2,  k0, +k2), //  1  0  1
+
+        // Bottom layer (y = -1)
+        new(-k3, -k3, -k3), // -1 -1 -1
+        new( k0, -k2, -k2), //  0 -1 -1
+        new(+k3, -k3, -k3), //  1 -1 -1
+        new(-k2, -k2,  k0), // -1 -1  0
+        new( k0, -k1,  k0), //  0 -1  0
+        new(+k2, -k2,  k0), //  1 -1  0
+        new(-k3, -k3, +k3), // -1 -1  1
+        new( k0, -k2, +k2), //  0 -1  1
+        new(+k3, -k3, +k3), //  1 -1  1
+    };
+}
+
+```
+
+![Adjustment Volume](../../../assets/images/2025-09-16/adjustment_volume.png)
+
+
 ## 总结
 
 本篇文章着重于现有开源PRTGI方案工程上的优化和拓展，即使完成上述后，仍然有大量待完善的内容。
 
-例如：滚动更新可以配合环形寻址修复滚动后GI的跳变；于远处未覆盖GI的问题，使用Clipmap多级采样的方式来优化；如果场景进行分块加载，Probe数据也需要进行分块并实现流送；烘焙部分为了更精确可以使用Path Tracer。
+例如：滚动更新可以配合环形寻址修复滚动后GI的跳变；远处未覆盖GI的问题，使用Clipmap多级采样的方式来优化；如果场景进行分块加载，Probe数据也需要进行分块并实现流送；烘焙部分为了更精确可以使用Path Tracer。
 
 其中一小部分的实现分享在了我的Fork版本[AkiKurisu/UnityPRTGI](https://github.com/AkiKurisu/UnityPRTGI)中，但由于我后来需要在Forward渲染路径下开发，就集成到别的项目了，Fork版本不再维护。
 
