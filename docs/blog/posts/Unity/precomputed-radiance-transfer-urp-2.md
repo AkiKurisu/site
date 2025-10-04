@@ -1,5 +1,5 @@
 ---
-date: 2025-09-30T11:14:05
+date: 2025-10-04T11:14:05
 authors:
   - AkiKurisu
 categories:
@@ -207,7 +207,7 @@ uint3 GetProbeTexture3DCoordFromIndex(uint probeIndex, uint shIndex, float4 voxe
 
 ## Reflection Normalization
 
-战神4在GDC演讲[The Indirect Lighting Pipeline of 'God of War'](https://gdcvault.com/play/1026323/The-Indirect-Lighting-Pipeline-of)中提到在暗处的ReflectionCube往往会和GI亮度不一致，所以需要进行Normalization。
+战神4在GDC演讲[The Indirect Lighting Pipeline of 'God of War'](https://gdcvault.com/play/1026323/The-Indirect-Lighting-Pipeline-of)中提到在暗处的ReflectionProbe往往会和GI亮度不一致，所以需要进行Normalization。
 
 ![envmap_normalization](../../../assets/images/2025-09-16/envmap_normalization.png)
 

@@ -105,7 +105,7 @@ camera.RenderToCubemap(_albedoRT, -1, StaticEditorFlags.ContributeGI);
 PRT（Precomputed Radiance Transfer）和APV实际上师出同门，共通点是都不需要UV2、比LightMap方便，需要烘焙，仅支持静态场景，两者的核心差异在于：
 
 - **APV**: 每个Probe离线存储球谐系数，不支持动态光照（如TOD系统），但因为存储了SkyVisibility，可以实现动态的天光遮蔽。
-- **PRT**: 存储Radiance数据和SkyVisbility，支持动态光照
+- **PRT**: 存储Radiance数据（指育碧这种基于Surfel Radiance Cache的，也有其他类型的PRT）和SkyVisbility，支持动态光照。
 
 PRT缺点也很明显，因为要存储的数据更多了，使得实践上Probe放置的密度小于APV的密度，这使得高频的Diffuse信息会被忽略，所以更适合（半）室外。
 
@@ -145,9 +145,10 @@ for (int shIndex = 0; shIndex < 9; shIndex++)
 // 新版本 - 向量化计算
 void EvaluateSH9(in float3 dir, out float sh[9])
 {
+    // Cartesian (right-handed, Z up) coordinate.
     float x = dir.x;
-    float y = dir.y;
-    float z = dir.z;
+    float y = dir.z;
+    float z = dir.y;
     
     // L0 (constant)
     sh[0] = 1.0; // Constant term (will be multiplied by kSHBasisCoef[0])
@@ -201,7 +202,7 @@ static const float kClampedCosineCoefs[] = {
 };
 ```
 
-这个优化基于Sébastien Lagarde的经典文章：[《Pi or not to Pi in game lighting equation》](https://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/)。什么时候改乘PI也是实时渲染中一个比较经典的问题，例如URP中的Lambert BRDF就没有除PI，目的是简化灯光流程，让灯光颜色调整时所见即所得。
+这个优化基于Sébastien Lagarde的经典文章：[《Pi or not to Pi in game lighting equation》](https://seblagarde.wordpress.com/2012/01/08/pi-or-not-to-pi-in-game-lighting-equation/)。什么时候应该乘PI也是实时渲染中一个比较经典的问题，例如URP中的Lambert BRDF就没有除PI，目的是简化灯光流程，让灯光颜色调整时所见即所得。
 
 
 ## 3D纹理
@@ -558,7 +559,7 @@ public struct FactorIndices
 4. 存储Factor、Brick、以及合并后的全部Surfel
 5. 运行时Volume拿到全部Surfel、Brick、Factor数据，提交GPU
 6. Relight所有Brick
-7. Relight所有Factor
+7. Relight所有Probe
 
 
 为了验证数据正确，这里优先编写一下Brick的Gizmos视图，方便在编辑器看到各个Brick对选中Probe的贡献值以及Brick中各个Surfel方向是否朝向一致。
