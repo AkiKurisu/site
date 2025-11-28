@@ -1,0 +1,6 @@
+/.cache/
+/.vscode/
+/site/
+/env/
+__pycache__/
+.vercel
