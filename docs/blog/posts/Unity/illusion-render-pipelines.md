@@ -11,9 +11,9 @@ categories:
 <!-- more -->
 
 
-总所周知，URP是Unity开发移动端的首选项，但它的Feature在如今看来实在匮乏。另一方面，如今移动端的性能越来越强劲，对于高通骁龙Elite这样的高端芯片甚至可以支持在移动端使用光线追踪技术。
+随着移动端芯片（如高通骁龙 Elite）性能的飞跃，移动平台对光线追踪等高端渲染技术的支持已成为可能。然而，作为Unity移动端开发首选的URP（Universal Render Pipeline），其原生Feature在应对高质量角色渲染需求时显得捉襟见肘。
 
-结合这样的背景，笔者为了想要在移动端获得高质量的角色渲染，前后大概花了一年的时间开发了IllusionRP这一开源渲染插件，插件也不再只包括角色渲染质量的提高，还吸收并集成了非常多来自HDRP和开源插件的渲染功能。
+为了在移动端实现高品质的角色渲染，笔者历时一年开发了IllusionRP。插件除了提升角色渲染质量，还吸收了大量来自HDRP和开源社区的渲染功能。
 
 IllusionRP完全基于URP的RendererFeature开发，无缝衔接现有URP项目，目前适用于Unity 2022.3.62 和 URP14.0.12，理论上也支持基于22版本的团结引擎（没测试过），仓库链接放在了文章末尾，欢迎在GitHub收藏关注。
 
@@ -21,15 +21,17 @@ IllusionRP完全基于URP的RendererFeature开发，无缝衔接现有URP项目�
 
 ![Banner](../../../assets/images/2025-11-28/banner.png)
 
-## 方案选择
+## 现有方案
 
-如果你是一名Unity游戏开发者，想让游戏画面变得更好看应当怎么办呢？ 
+作为Unity开发者，想要提升画面表现力，通常有以下几种路径： 
 
 1. 直接用HDRP。Feature很多，但由于大部分使用ComputeShader，只适用于主机和高端PC。在国内因为没法做手游，市面上几乎没多少使用HDRP的商业项目。但现在移动端性能逐渐变强的情况下，也存在有优化能力的团队将HDRP适配到移动端，例如搜狐畅游引擎部的[图形引擎实战：HDRP移动版高清渲染管线改造](https://zhuanlan.zhihu.com/p/567981404)。
+
 2. URP加插件。URP可以直接通过RendererFeature注入ScriptableRenderPass方便拓展功能，AssetStore和Github都能找到非常多的插件。
+
 3. 自己写SRP，例如蛋白胨大佬的[DanbaidongRP](https://github.com/danbaidong1111/DanbaidongRP)，前提是有比较强的图形学知识和工程能力。
 
-第一种我觉得对于普通开发者来说不太可能，等搞完都出Unity7了（Unity之前说会在Unity7整合URP和HDRP）。
+第一种我觉得对于普通开发者来说不太可能，等搞完都出Unity7了（<b>Unity之前说会在Unity7整合URP和HDRP，但在发此文的时候Unity把合并计划挪到了6.3，现在可以坐等了</b>）。
 
 第二种我认为有好有坏，将渲染功能拆分成RenderFeature让社区开发者可以协作是一件好事，但也会导致冗余浪费和隐藏成本的提高。
 
@@ -41,7 +43,9 @@ IllusionRP完全基于URP的RendererFeature开发，无缝衔接现有URP项目�
 
 第三种对我这样的民科菜鸟来说属实太难了... 客观来讲，自定义的SRP难以随引擎升级以适配新功能（例如Unity6的GPU Driven），维护成本比较高。
 
-但由于笔者认为自己的工程能力尚可，不想直接摆烂，结合自己对SRP的理解攒出了第四个方案——在URP基础上再搭一层管线，将HDRP迁移过来的渲染功能合并在一个RendererFeature中以便管线调度RendererPass。
+## 最终选型
+
+由于笔者认为自己的工程能力尚可，不想直接摆烂，结合自己对SRP的理解攒出了第四个方案——在URP基础上再搭一层管线，将HDRP迁移过来的渲染功能合并在一个RendererFeature中以便管线调度RendererPass。
 
 因为没有重写渲染管线，基本都是加法，这让笔者能在一边迁移功能的同时学习相关概念和算法~
 
@@ -66,20 +70,35 @@ IllusionRP添加了以下Shading Model：
 光添加ShadingModel对于提高渲染质量是不够的，例如URP的SSAO对于角色渲染就是非常糟糕，至少也得调整为HBAO才能看。
 
 IllusionRP集成了以下渲染功能：
+
 1. Per Object Shadow 逐物体阴影
+
 2. Percentage Closer Soft Shadows (PCSS) 高质量的软阴影
+
 3. Contact Shadow 接触阴影
+
 4. Ground Truth Ambient Occlusion (GTAO)高质量的屏幕空间环境光遮蔽
+
 5. Screen Space Reflection (SSR)屏幕空间反射
+
 6. Screen Space Subsurface Scattering (5S)屏幕空间次表面散射
+
 7. Screen Space Global Illumination (SSGI)屏幕空间全局光照
+
 8. Precomputed Radiance Transfer Global Illumination (PRTGI)预计算辐照度全局光照
-9. Reflection Normalization 反射标准化
+
+9.  Reflection Normalization 反射标准化
+
 10. Order Independent transparency (OIT)顺序无关半透明
+
 11. Volumetric Fog 体积雾
+
 12. Convolution Bloom 卷积泛光（替换原生Bloom）
+
 13. Auto Exposure 自适应曝光
+
 14. 仿原神的Gran-Turismo Tonemapping（替换原生Tonemapping-Neural）
+
 15. Unreal的Filmic ACES Tonemapping（替换原生Tonemapping-ACES）
 
 其中PerObjectShadow、GTAO和5S对于提升角色渲染质量影响最大，如果读者也想要提高角色渲染质量，可以尝试只添加这3个功能。
@@ -102,87 +121,12 @@ IllusionRP集成了以下渲染功能：
 
 工作流这部分可以分为着色器开发流程、效果管理流程、渲染调试流程与构建流程。
 
-#### 着色器开发流程
+1. 着色器开发：提供 ASE (Amplify Shader Editor) 模板，分离设计层与模型层。
+2. 效果管理：通过 RendererFeature 全局开关与 VolumeComponent 进行分级控制。
+3. 渲染调试：集成CVar。
+4. 构建：定制 Shader Stripper，剔除无用变体。
 
-IllusionRP将Shader开发分为了设计层和模型层，插件为每个新增的Shading Model都提供了Amplify Shader Editor的Template，设计师可以像在HDRP或UE中一样直接选择Shading Model练练看创建Shader， 并且使用了HDRP的Surface Input提供了几个示例（HD Skin、HD Hair、HD Fabric等）。
-
-IllusionRP使用ASE作为设计层工具的一大原因是ASE的模板开发比较方便，可以通过注释来创建静态编译选项，例如Hair Template就可以直接在ASE编辑器中切换KajiyaKay和Marschner模型。
-
-![Hair Mode](../../../assets/images/2025-11-28/hair_mode.png)
-
-
-#### 效果管理流程
-
-IllusionRP将为每个效果在RendererFeature上提供了全局开关，方便在不同平台下切换可使用的效果，以及之后方便剔除Shader变体。其次提供了VolumeComponent方便配置效果参数以及Gameplay侧的效果开关。
-
-![RendererFeature](../../../assets/images/2025-11-28/renderer_feature.png)
-
-#### 渲染调试流程
-
-RendererDebugger是Unity原生的运行时调试工具，但可惜不支持非侵入式的拓展，所以我基于之前写的开发框架[AkiKurisu - Chris](https://github.com/AkiKurisu/Chris)走了自己的一套调试方式。
-
-Chris提供了类似Unreal的CVar功能，我们可以在控制台中输入变量来调整运行时启用的渲染效果以及一些Debug效果。
-
-![Debugging](../../../assets/images/2025-11-28/console_variables.png)
-
-#### 构建流程
-
-对于渲染管线，构建部分要考虑的实际就是Shader变体控制，IllusionRP完全参考URP的Shader变体管理，使用Shader Prefiltering和Variant Stripper两个工具来分别进行剔除。
-
-Shader Prefiltering是Unity提供的粗筛漏斗，但这里存在设计问题导致有一些坑点。
-
-例如`[RemoveIf]`和`[SelectIf]`这几个Attribute只能作用在Const或序列化字段中，<b>静态字段</b>是不生效的。其次因为URP会在自己的Prefiltering中剔除掉例如ScreenSpaceShadow和ScreenSpaceOcclusion，我们需要标记`overridePriority`为`true`来覆盖URP的设置。
-
-```C#
-public partial class IllusionRendererFeature
-  {
-      // Notice that prefilter attribute only works for serialized fields and constants
-      internal enum PrefilterMode
-      {
-          Remove,                     // Removes the keyword
-          Select,                     // Keeps the keyword
-          SelectOnly                  // Selects the keyword and removes others
-      }
-
-      // Override priority in UniversalRenderPipelinePrefitering
-      // Prefer Depth Normal, see GroundTruthAmbientOcclusion.cs
-      [SelectIf(true, overridePriority: true, keywordNames: ScreenSpaceAmbientOcclusion.k_SourceDepthNormalsKeyword)]
-      private const bool RequiresScreenSpaceOcclusionDepthNormals = true;
-
-      
-      [RemoveIf(PrefilterMode.Remove,     keywordNames: IllusionShaderKeywords._SCREEN_SPACE_SSS)]
-      [SelectIf(PrefilterMode.Select,     keywordNames: new [] {"", IllusionShaderKeywords._SCREEN_SPACE_SSS})]
-      [SelectIf(PrefilterMode.SelectOnly, keywordNames: IllusionShaderKeywords._SCREEN_SPACE_SSS)]
-      [SerializeField]
-      internal PrefilterMode ScreenSpaceSubsurfaceScatteringPrefilterMode = PrefilterMode.Select;
-  }
-```
-
-Variant Stripper是更加精细化针对特定变体的剔除工具。IllusionRP直接参考URP，对于每一个Shader变体判断关键词组合是否有效，例如开启SURFACE_TYPE_TRANSPARENT后，因为没有写入深度，就不应该使用屏幕空间的效果例如SSAO、SSR、SSAO，我们就可以在Variant Stripper中剔除掉这些变体。
-
-```C#
-private bool StripUnusedFeatures_ScreenSpaceOcclusion(ref ShaderStrippingData strippingData, ref ShaderStripTool<ShaderFeatures> stripTool)
-{
-    if (strippingData.IsShaderFeatureEnabled(ShaderFeatures.ScreenSpaceOcclusion))
-    {
-        // Transparent strip ssao
-        if (strippingData.IsKeywordEnabled(_surfaceTypeTransparent) && strippingData.IsKeywordEnabled(_screenSpaceOcclusion))
-            return true;
-        
-        if (stripTool.StripMultiCompileKeepOffVariant(_screenSpaceOcclusion, ShaderFeatures.ScreenSpaceOcclusion))
-            return true;
-    }
-    else
-    {
-        if (stripTool.StripMultiCompile(_screenSpaceOcclusion, ShaderFeatures.ScreenSpaceOcclusion))
-            return true;
-    }
-    
-    return false;
-}
-```
-
-## 着色器实现
+## 着色器实现细节
 
 IllusionRP在着色器实现上的过程与细节。
 
@@ -280,7 +224,7 @@ void SheenScattering(BRDFData brdfData, half NoH, half NoV, half NoL, out half S
 
 然后因为前面适配了多Profile的次表面散射，理论上可以根据需要可以加入布料的次表面散射。
 
-## 阴影质量提升
+## 阴影质量提升细节
 
 由于CSM的阴影精度并不高，对于需要高精度阴影的角色，除了增加CSM等级的方式，更普遍的做法是使用逐物体阴影PerObjectShadow。
 
@@ -328,7 +272,7 @@ float3 biasPositionWS = positionWS;
 half realtimeShadow = IllusionMainLightRealtimeShadow(shadowCoord);
 ```
 
-## 屏幕空间光照实现
+## 屏幕空间光照实现细节
 
 屏幕空间光照接入了SSAO（使用了GTAO算法）、SSGI、SSR。
 
@@ -401,7 +345,7 @@ if (additionalLightsShadowCasterPass != null)
 
 因此HDRP对ScreenSpaceLighting功能普遍使用Compute In Half Resolution + Upsampling to RTSize的做法，Lighting就可以直接LoadTexture，这比URP原生SSAO只做半分辨率更为合理。
 
-## 全局光照方案
+## 全局光照方案细节
 
 在Unity2022中，URP还未支持APV，只有LightMap+LightProbes一套原始人方案。前者纯静态、需要UV2，后者面向动态物体，但由于URP没有LightProbeProxy构建3d纹理，只能逐物体对附近的LightProbe做插值，这使得角色模型等复杂模型的间接光光照效果很差（与环境不一致）。
 
@@ -444,13 +388,7 @@ private void BindAmbientProbe(CommandBuffer cmd)
 }
 ```
 
-## 半透明渲染提升
-
-使用Weighted Blend OIT来修复头发半透明部分的穿插。但提升的不多，单独使用OIT还是会有瑕疵。
-
-后续可以参考UE5使用Pixel Linked List或Moment Based OIT来进一步优化。
-
-## 后处理提升
+## 后处理提升细节
 
 这块因为笔者用的模型不是那么写实（日式写实），使用ACES时感觉效果不好，就找了两个方案：
 
@@ -469,6 +407,88 @@ Gran-Turismo Tonemapping：使用更简单的曲线在不降低饱和度的情�
 从接入结果上看，对于我这里的角色，个人认为GT效果要更好些。
 
 ![Tonemapping](../../../assets/images/2025-11-28/tonemapping.png)
+
+## 工作流细节
+
+### 着色器开发流程
+
+IllusionRP将Shader开发分为了设计层和模型层，插件为每个新增的Shading Model都提供了Amplify Shader Editor的Template，设计师可以像在HDRP或UE中一样直接选择Shading Model练练看创建Shader， 并且使用了HDRP的Surface Input提供了几个示例（HD Skin、HD Hair、HD Fabric等）。
+
+IllusionRP使用ASE作为设计层工具的一大原因是ASE的模板开发比较方便，可以通过注释来创建静态编译选项，例如Hair Template就可以直接在ASE编辑器中切换KajiyaKay和Marschner模型。
+
+![Hair Mode](../../../assets/images/2025-11-28/hair_mode.png)
+
+
+### 效果管理流程
+
+IllusionRP将为每个效果在RendererFeature上提供了全局开关，方便在不同平台下切换可使用的效果，以及之后方便剔除Shader变体。其次提供了VolumeComponent方便配置效果参数以及Gameplay侧的效果开关。
+
+![RendererFeature](../../../assets/images/2025-11-28/renderer_feature.png)
+
+### 渲染调试流程
+
+RendererDebugger是Unity原生的运行时调试工具，但可惜不支持非侵入式的拓展，所以我基于之前写的开发框架[AkiKurisu - Chris](https://github.com/AkiKurisu/Chris)走了自己的一套调试方式。
+
+Chris提供了类似Unreal的CVar功能，我们可以在控制台中输入变量来调整运行时启用的渲染效果以及一些Debug效果。
+
+![Debugging](../../../assets/images/2025-11-28/console_variables.png)
+
+### 构建流程
+
+对于渲染管线，构建部分要考虑的实际就是Shader变体控制，IllusionRP完全参考URP的Shader变体管理，使用Shader Prefiltering和Variant Stripper两个工具来分别进行剔除。
+
+Shader Prefiltering是Unity提供的粗筛漏斗，但这里存在设计问题导致有一些坑点。
+
+例如`[RemoveIf]`和`[SelectIf]`这几个Attribute只能作用在Const或序列化字段中，<b>静态字段</b>是不生效的。其次因为URP会在自己的Prefiltering中剔除掉例如ScreenSpaceShadow和ScreenSpaceOcclusion，我们需要标记`overridePriority`为`true`来覆盖URP的设置。
+
+```C#
+public partial class IllusionRendererFeature
+  {
+      // Notice that prefilter attribute only works for serialized fields and constants
+      internal enum PrefilterMode
+      {
+          Remove,                     // Removes the keyword
+          Select,                     // Keeps the keyword
+          SelectOnly                  // Selects the keyword and removes others
+      }
+
+      // Override priority in UniversalRenderPipelinePrefitering
+      // Prefer Depth Normal, see GroundTruthAmbientOcclusion.cs
+      [SelectIf(true, overridePriority: true, keywordNames: ScreenSpaceAmbientOcclusion.k_SourceDepthNormalsKeyword)]
+      private const bool RequiresScreenSpaceOcclusionDepthNormals = true;
+
+      
+      [RemoveIf(PrefilterMode.Remove,     keywordNames: IllusionShaderKeywords._SCREEN_SPACE_SSS)]
+      [SelectIf(PrefilterMode.Select,     keywordNames: new [] {"", IllusionShaderKeywords._SCREEN_SPACE_SSS})]
+      [SelectIf(PrefilterMode.SelectOnly, keywordNames: IllusionShaderKeywords._SCREEN_SPACE_SSS)]
+      [SerializeField]
+      internal PrefilterMode ScreenSpaceSubsurfaceScatteringPrefilterMode = PrefilterMode.Select;
+  }
+```
+
+Variant Stripper是更加精细化针对特定变体的剔除工具。IllusionRP直接参考URP，对于每一个Shader变体判断关键词组合是否有效，例如开启SURFACE_TYPE_TRANSPARENT后，因为没有写入深度，就不应该使用屏幕空间的效果例如SSAO、SSR、SSAO，我们就可以在Variant Stripper中剔除掉这些变体。
+
+```C#
+private bool StripUnusedFeatures_ScreenSpaceOcclusion(ref ShaderStrippingData strippingData, ref ShaderStripTool<ShaderFeatures> stripTool)
+{
+    if (strippingData.IsShaderFeatureEnabled(ShaderFeatures.ScreenSpaceOcclusion))
+    {
+        // Transparent strip ssao
+        if (strippingData.IsKeywordEnabled(_surfaceTypeTransparent) && strippingData.IsKeywordEnabled(_screenSpaceOcclusion))
+            return true;
+        
+        if (stripTool.StripMultiCompileKeepOffVariant(_screenSpaceOcclusion, ShaderFeatures.ScreenSpaceOcclusion))
+            return true;
+    }
+    else
+    {
+        if (stripTool.StripMultiCompile(_screenSpaceOcclusion, ShaderFeatures.ScreenSpaceOcclusion))
+            return true;
+    }
+    
+    return false;
+}
+```
 
 ## 参考资料
 
@@ -493,7 +513,5 @@ Gran-Turismo Tonemapping：使用更简单的曲线在不降低饱和度的情�
 ## 仓库链接
 
 欢迎Star、Fork和Contribute~
-
-（不知道什么时候有空升级到Unity6的RenderGraph捏）
 
 [AkiKurisu - IllusionRP](https://github.com/AkiKurisu/IllusionRP)
