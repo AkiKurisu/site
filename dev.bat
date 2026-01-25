@@ -1,5 +1,4 @@
 @echo off
-call .\env\Scripts\activate.bat
 start /min cmd /k "mkdocs serve"
 :loop
 timeout /t 1 >nul
