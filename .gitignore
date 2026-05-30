@@ -3,5 +3,4 @@
 /site/
 /env/
 __pycache__/
-.vercel
 /.craft
