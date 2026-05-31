@@ -133,13 +133,288 @@
 
 /* #endregion */
 
-/* #region 博客首页文章分割线 */
+/* #region 首页 Hero */
+
+/* 主题无关的品牌渐变（在 light / dark 下都有足够对比度） */
+.home-hero {
+    --hero-grad: linear-gradient(115deg, #38bdf8 0%, #6366f1 45%, #d946ef 100%);
+
+    --hero-bg: #f5f5fb;
+    --hero-border: rgba(99, 102, 241, .16);
+    --hero-blob-1: rgba(99, 102, 241, .20);
+    --hero-blob-2: rgba(168, 85, 247, .16);
+    --hero-blob-3: rgba(56, 189, 248, .16);
+    --hero-grid: rgba(76, 80, 130, .16);
+    --hero-eyebrow: #6d28d9;
+    --hero-ghost-bg: rgba(255, 255, 255, .55);
+    --hero-ghost-border: rgba(99, 102, 241, .28);
+    --hero-ghost-fg: #4338ca;
+
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    margin: .6rem 0 2.8rem;
+    padding: 4.2rem 1.5rem 4rem;
+    text-align: center;
+    border-radius: 1rem;
+    background-color: var(--hero-bg);
+    background-image:
+        radial-gradient(42% 62% at 14% 18%, var(--hero-blob-1), transparent 70%),
+        radial-gradient(46% 66% at 86% 24%, var(--hero-blob-2), transparent 70%),
+        radial-gradient(52% 72% at 50% 116%, var(--hero-blob-3), transparent 70%);
+    border: 1px solid var(--hero-border);
+}
+
+[data-md-color-scheme=slate] .home-hero {
+    --hero-bg: #111218;
+    --hero-border: rgba(124, 134, 255, .18);
+    --hero-blob-1: rgba(99, 102, 241, .32);
+    --hero-blob-2: rgba(168, 85, 247, .26);
+    --hero-blob-3: rgba(56, 189, 248, .20);
+    --hero-grid: rgba(160, 170, 255, .10);
+    --hero-eyebrow: #a5b4fc;
+    --hero-ghost-bg: rgba(255, 255, 255, .06);
+    --hero-ghost-border: rgba(255, 255, 255, .18);
+    --hero-ghost-fg: var(--md-default-fg-color);
+}
+
+/* 点阵网格纹理，向边缘淡出 */
+.home-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: radial-gradient(circle at center, var(--hero-grid) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(ellipse 78% 78% at 50% 32%, #000 38%, transparent 76%);
+    mask-image: radial-gradient(ellipse 78% 78% at 50% 32%, #000 38%, transparent 76%);
+    opacity: .7;
+    pointer-events: none;
+}
+
+/* 缓慢漂移的极光光晕 */
+.home-hero::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 22%;
+    top: -24%;
+    width: 56%;
+    aspect-ratio: 1;
+    background: radial-gradient(circle, var(--hero-blob-2), transparent 64%);
+    filter: blur(48px);
+    pointer-events: none;
+    animation: heroFloat 16s ease-in-out infinite alternate;
+}
+
+@keyframes heroFloat {
+    from { transform: translate(-9%, -5%) scale(1); }
+    to   { transform: translate(11%, 9%) scale(1.18); }
+}
+
+.home-hero__inner {
+    max-width: 44rem;
+    margin: 0 auto;
+}
+
+.home-hero__inner > * {
+    animation: heroIn .7s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.home-hero__eyebrow  { animation-delay: .04s; }
+.home-hero__title    { animation-delay: .12s; }
+.home-hero__subtitle { animation-delay: .20s; }
+.home-hero__actions  { animation-delay: .28s; }
+
+@keyframes heroIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* 落地页隐藏编辑铅笔按钮，避免浮在 hero 上 */
+.md-content__inner:has(.home-hero) > .md-content__button {
+    display: none;
+}
+
+/* 小标签（eyebrow） */
+.md-typeset .home-hero__eyebrow {
+    margin: 0 0 1.1rem;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .22em;
+    color: var(--hero-eyebrow);
+    text-transform: uppercase;
+}
+
+/* 主标题：品牌渐变文字 */
+.md-typeset .home-hero__title {
+    margin: 0 0 1rem;
+    font-size: 3.1rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    background: var(--hero-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.md-typeset .home-hero__subtitle {
+    margin: 0 auto 1.9rem;
+    max-width: 34rem;
+    color: var(--md-default-fg-color--light);
+    font-size: 1rem;
+    line-height: 1.8;
+}
+
+.home-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .8rem;
+    justify-content: center;
+}
+
+/* CTA 按钮 —— 主按钮：渐变填充 + 光晕 */
+.md-typeset .home-hero .md-button {
+    margin: 0;
+    padding: .55rem 1.5rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease, background-color .2s ease;
+}
+
+.md-typeset .home-hero .home-hero__cta {
+    border: none;
+    color: #fff;
+    background: var(--hero-grad);
+    box-shadow: 0 .5rem 1.4rem -.4rem rgba(99, 102, 241, .65);
+}
+
+.md-typeset .home-hero .home-hero__cta:hover {
+    transform: translateY(-.15rem);
+    filter: brightness(1.07) saturate(1.05);
+    box-shadow: 0 .7rem 1.7rem -.4rem rgba(99, 102, 241, .8);
+}
+
+/* 次按钮：玻璃描边 */
+.md-typeset .home-hero .home-hero__cta--ghost {
+    color: var(--hero-ghost-fg);
+    background: var(--hero-ghost-bg);
+    border: 1px solid var(--hero-ghost-border);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+}
+
+.md-typeset .home-hero .home-hero__cta--ghost:hover {
+    transform: translateY(-.15rem);
+    border-color: var(--hero-eyebrow);
+    color: var(--hero-eyebrow);
+}
+
+@media screen and (max-width: 44.9375em) {
+    .home-hero {
+        padding: 3rem 1.1rem 2.8rem;
+        border-radius: .8rem;
+    }
+
+    .md-typeset .home-hero__title {
+        font-size: 2.2rem;
+    }
+}
+
+/* 尊重「减少动态效果」偏好 */
+@media (prefers-reduced-motion: reduce) {
+    .home-hero::after,
+    .home-hero__inner > * {
+        animation: none !important;
+    }
+}
+
+/* #endregion */
+
+/* #region 博客首页文章卡片 */
 
 .md-post--excerpt {
-    border-top: .05rem solid var(--md-default-fg-color--lightest);
-    padding-top: 1.5rem;
-    margin-top: 1.5rem;
-    margin-bottom: 1.5rem !important;
+    position: relative;
+    margin: 1.2rem 0 !important;
+    padding: 1.1rem 1.3rem 0.9rem;
+    border: .05rem solid var(--md-default-fg-color--lightest);
+    border-radius: .4rem;
+    background-color: var(--md-default-bg-color);
+    transition:
+        border-color .2s ease,
+        box-shadow .2s ease,
+        transform .2s ease;
+}
+
+.md-post--excerpt:hover {
+    border-color: color-mix(in srgb, var(--md-accent-fg-color, var(--md-primary-fg-color)) 50%, var(--md-default-fg-color--lightest));
+    box-shadow: 0 .3rem .9rem -.3rem rgba(0, 0, 0, .18);
+    transform: translateY(-.12rem);
+}
+
+[data-md-color-scheme=slate] .md-post--excerpt {
+    background-color: #1a1a1a;
+}
+
+[data-md-color-scheme=slate] .md-post--excerpt:hover {
+    box-shadow: 0 .3rem .9rem -.3rem rgba(0, 0, 0, .55);
+}
+
+/* 文章标题 */
+.md-post--excerpt .md-post__content > h2 {
+    margin: .1rem 0 .4rem;
+}
+
+.md-post--excerpt .md-post__content > h2 > a {
+    transition: color .2s ease;
+}
+
+/* 元信息（日期 / 分类 / 阅读时间）做成胶囊标签 */
+.md-post--excerpt .md-meta__list {
+    gap: .35rem .5rem;
+}
+
+.md-post--excerpt .md-meta__item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.md-post--excerpt .md-meta__item .md-meta__link {
+    display: inline-block;
+    padding: .05rem .45rem;
+    border-radius: 1rem;
+    background-color: var(--md-default-fg-color--lightest);
+    color: var(--md-default-fg-color--light);
+    font-size: .9em;
+    line-height: 1.5;
+    transition: background-color .2s ease, color .2s ease;
+}
+
+.md-post--excerpt .md-meta__item .md-meta__link:hover {
+    background-color: var(--md-accent-fg-color, var(--md-primary-fg-color));
+    color: var(--md-primary-bg-color, #fff);
+}
+
+/* “继续阅读” 做成更明显的行动入口 */
+.md-post--excerpt .md-post__action {
+    margin-top: .3rem;
+}
+
+.md-post--excerpt .md-post__action a {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    font-weight: 600;
+}
+
+.md-post--excerpt .md-post__action a::after {
+    content: "→";
+    transition: transform .2s ease;
+}
+
+.md-post--excerpt:hover .md-post__action a::after {
+    transform: translateX(.2rem);
 }
 
 /* #endregion */

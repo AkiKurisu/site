@@ -3,7 +3,7 @@ date: 2026-05-30T18:25:00
 authors:
   - AkiKurisu
 categories:
-  - DotCraft
+  - Agent
 ---
 
 # AI Agent 如何省钱：Prompt Cache 优化实践

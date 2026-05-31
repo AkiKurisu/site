@@ -1,15 +1,32 @@
 ---
 search:
   exclude: true
+hide:
+  - navigation
+  - toc
 ---
 
+<div class="home-hero" markdown>
+
+<div class="home-hero__inner" markdown>
+
+<p class="home-hero__eyebrow">GAME&nbsp;DEV · GRAPHICS · AI</p>
+
+# Make Great Games! { .home-hero__title }
+
+<p class="home-hero__subtitle">
+游戏开发者 · 渲染 / Gameplay / AI<br>
+记录我在游戏开发路上的奇思妙想
+</p>
+
+<div class="home-hero__actions" markdown>
+[阅读博客](blog/index.md){ .md-button .home-hero__cta }
+</div>
+
+</div>
+</div>
+
 # 介绍
-
-!!! abstract ""
-
-    <p style="font-size:1.2rem;text-align:center;font-weight:bold;">
-    Make Great Games!
-    </p>
 
 My journey through game development milestones.
 
@@ -50,7 +67,3 @@ My journey through game development milestones.
     
     - Primary: **Unreal Engine** development
     - Personal Interest: **Unity** engine exploration
-
-## Credits
-
-[stalomeow/note](https://github.com/stalomeow/note)

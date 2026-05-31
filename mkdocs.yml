@@ -5,7 +5,7 @@ repo_name: AkiKurisu/site
 repo_url: https://github.com/AkiKurisu/site
 edit_uri: blob/main/docs/ # do not use "edit/main/docs/"
 copyright: >
-  Copyright &copy; 2022-2025 AkiKurisu. All rights reserved.<br>
+  Copyright &copy; 2022-2026 AkiKurisu. All rights reserved.<br>
   Contents are licensed under the <u><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC-BY-NC-SA 4.0</a></u> license, except when otherwise noted.
 
 
@@ -59,7 +59,8 @@ theme:
     # TODO instant 和 MathJax 一起用目前有 bug，进下一个页面后公式排版会乱
     # - navigation.instant
     # - navigation.instant.progress
-    # - navigation.tabs
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.top
     - navigation.path
     # - navigation.indexes
@@ -96,9 +97,9 @@ extra_css:
 
 extra_javascript:
   - assets/javascripts/mathjax.js
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  # polyfill.io 已于 2024 年中被转售并注入恶意代码，域名现已停摆；MathJax 4 + 现代浏览器无需 polyfill，故移除。
   # - https://cdn.bootcdn.net/ajax/libs/mathjax/3.2.2/es5/tex-chtml.js # 别加 mml！它会导致表格横向溢出！
-  - https://cdn.jsdelivr.net/npm/mathjax@4.0.0-beta.4/tex-chtml.js
+  - https://cdn.jsdelivr.net/npm/mathjax@4.0.0/tex-chtml.js
 
 
 markdown_extensions:
@@ -186,8 +187,8 @@ plugins:
       blog_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
       archive: true
       archive_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
-      archive_date_format: yyyy 年 MM 月
-      archive_url_date_format: yyyy/MM
+      archive_date_format: yyyy 年
+      archive_url_date_format: yyyy
       categories: true
       categories_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
       authors: true
@@ -210,13 +211,3 @@ nav:
   - index.md
   - 博客:
     - blog/index.md
-  - 项目:
-    - project/index.md
-    - Next Gen Dialogue:
-      - 简介: project/Next Gen Dialogue/readme.md
-      - 演示项目: project/Next Gen Dialogue/demo.md
-    - Real Agents:
-      - 简介: project/Real Agents/readme.md
-      - 思考: project/Real Agents/conceive.md
-      - 实验: project/Real Agents/experiment.md
-      - 传统AI方法的使用技巧: project/Real Agents/tips-for-traditional-ai.md
