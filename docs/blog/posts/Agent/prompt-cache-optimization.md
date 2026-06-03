@@ -10,7 +10,7 @@ categories:
 
 <!-- more -->
 
-笔者从二月份 OpenClaw 兴起后，开始设计开发 [DotCraft](https://github.com/DotHarness/dotcraft)——一个以 .NET 技术栈、C# 为主要语言的 AI Agent。它最初只是我自己的 Claw 助手和群机器人，之后随着不断迭代，吸收了大量主流 Coding Agent 的功能，逐渐成为我游戏开发工作中的主力。凭借极高的拓展性，工作中的 Agentic 业务也开始基于这套 Agent Harness 来建设和开发。
+随着大模型的推理能力愈发强大，阻碍 Agent 落地的不再是模型能力，而是高昂的 Token 成本。
 
 本篇主要分享开发 Agent 过程中遇到的 Prompt Cache（提示缓存）优化问题。和游戏开发非常注重性能优化一样，Prompt Cache 也是 Agent 开发中最重要的硬指标之一。
 
@@ -18,7 +18,9 @@ categories:
 
 ## 起因
 
-笔者最初把 DotCraft 用于工作开发时，接入的是公司的 Claude Opus 4.7 API，结果遇到了一个非常直观的痛点：一个任务明明只跑了几分钟，账单却接近 50 美刀。
+笔者从二月份 Claw 类 Agent 助手兴起后，开始设计开发 [DotCraft](https://github.com/DotHarness/dotcraft)——一个以 .NET 技术栈、C# 为主要语言的 AI Agent。它最初只是我自己的 Claw 助手和群机器人，之后随着不断迭代，吸收了大量主流 Coding Agent 的功能，逐渐成为我游戏开发工作中的主力。凭借极高的拓展性，工作中的 Agentic 业务也开始基于这套 Agent Harness 来建设和开发。
+
+而最初把 DotCraft 用于工作开发时，接入的是公司的 Claude Opus 4.7 API，遇到了一个非常直观的痛点：一个任务明明只跑了几分钟，账单却接近 50 美刀。
 
 虽然没有之前流传的"某游戏公司一夜烧掉几百万 Token"那么离谱，但也足以让我停下来重新审视 Agent 的设计。我去 LLM 提供商的后台查了一下缓存命中情况，结果发现 cache hit rate 竟然是 0。
 
