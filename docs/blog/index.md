@@ -4,6 +4,6 @@ search:
 comments: false
 ---
 
-# 博客文章
+# Blog Posts
 
-个人博客，包括游戏开发的各类奇思妙想，希望你喜欢~
+This is my personal blog, filled with all sorts of creative ideas for game development. Hope you enjoy it!

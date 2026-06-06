@@ -209,5 +209,5 @@ plugins:
 
 nav:
   - index.md
-  - 博客:
+  - Blogs:
     - blog/index.md
