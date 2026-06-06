@@ -63,7 +63,7 @@ theme:
     - navigation.tabs.sticky
     - navigation.top
     - navigation.path
-    # - navigation.indexes
+    - navigation.indexes
     # - navigation.tracking
     - navigation.footer
     # - navigation.sections
@@ -186,10 +186,12 @@ plugins:
       enabled: true
       blog_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
       archive: true
+      archive_name: Archive
       archive_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
-      archive_date_format: yyyy 年
+      archive_date_format: yyyy
       archive_url_date_format: yyyy
       categories: true
+      categories_name: Topics
       categories_toc: false # TODO 中文 toc 有问题，很多 id 都是 #_1
       authors: true
       post_date_format: yyyy-MM-dd
@@ -208,6 +210,6 @@ plugins:
 
 
 nav:
-  - index.md
-  - Blogs:
+  - Home: index.md
+  - Blog:
     - blog/index.md

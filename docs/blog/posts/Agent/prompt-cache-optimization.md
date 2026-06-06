@@ -10,6 +10,8 @@ categories:
 
 <!-- more -->
 
+![banner](../../../assets/images/2026-05-30/banner.png)
+
 随着大模型的推理能力愈发强大，阻碍 Agent 落地的不再是模型能力，而是高昂的 Token 成本。
 
 本篇主要分享开发 Agent 过程中遇到的 Prompt Cache（提示缓存）优化问题。和游戏开发非常注重性能优化一样，Prompt Cache 也是 Agent 开发中最重要的硬指标之一。

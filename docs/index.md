@@ -19,7 +19,7 @@ Notes from my game dev journey
 </p>
 
 <div class="home-hero__actions" markdown>
-[Read Blogs](blog/index.md){ .md-button .home-hero__cta }
+[Read Blog](blog/index.md){ .md-button .home-hero__cta }
 </div>
 
 </div>

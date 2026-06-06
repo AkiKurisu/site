@@ -4,6 +4,6 @@ search:
 comments: false
 ---
 
-# Blog Posts
+# Game Dev Notes
 
-This is my personal blog, filled with all sorts of creative ideas for game development. Hope you enjoy it!
+Notes from my game dev journey, from Unity and rendering to AI agents.
