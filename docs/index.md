@@ -47,13 +47,15 @@ My journey through game development milestones.
     Interned at **Unity China** and presented game development experience at Unity Open Day Beijing
 
 !!! success "Personal Project"
-    Personally developed the game **"Evolution Contract"**
+    Personally developed the game **"Evolution Covenant"**
     
     **Awards & Nominations:**
     
     - :first_place_medal: Won **"Innovative Gameplay Design Award"** at Hypergryph's 2023 Innovation Core
     - :medal: Nominated for **"Best Gameplay Design Award"** at the 3rd CUSGA National College Student Game Development Competition
     - :medal: Nominated for **"Best Strategy Game Award"** at the 3rd CUSGA National College Student Game Development Competition
+  
+    ![Evolution Covenant](assets/images/index/evolution-covenant.jpg){ loading=lazy }
 
 ---
 
